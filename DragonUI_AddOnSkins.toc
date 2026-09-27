@@ -1,0 +1,26 @@
+## Interface: 30300
+## Title: |cff1784d1DragonUI|r |cffffffffAddOnSkins|r
+## Notes: |cffcaf7faReskin Addons for DragonUI|r
+## Author: PentSec
+## Version: 1.0
+## SavedVariables: DragonUI_AddOnSkinsDB, DragonUI_AddOnSkinsSettings
+## Dependencies: DragonUI
+## X-License: MIT for project-authored code; bundled dependencies retain their own licenses
+
+# LIBS
+Libs\CallbackHandler-1.0\CallbackHandler-1.0.xml
+Libs\AceAddon-3.0\AceAddon-3.0.xml
+Libs\AceDB-3.0\AceDB-3.0.xml
+Libs\AceLocale-3.0\AceLocale-3.0-DragonUIAddOnSkins.xml
+Libs\LibSharedMedia-3.0\LibSharedMedia-3.0.xml
+
+# LOCALES
+Locales\Load_Locales.xml
+
+
+database.lua
+Core.lua
+
+utils\atlas.lua
+Skins\Load_Skins.xml
+Settings\Load_Settings.xml

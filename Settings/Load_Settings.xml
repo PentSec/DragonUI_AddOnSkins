@@ -1,0 +1,4 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/">
+<!-- tab AddOn Skin -->
+	<Script file="tab_addonskins.lua"/>
+</Ui>

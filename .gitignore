@@ -1,0 +1,17 @@
+# macOS
+.DS_Store
+
+# Secrets
+.env
+.env.*
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Backup files
+*.bak
+*.lua.bak
+*.bak2
+docs/
