@@ -1,6 +1,23 @@
-# DragonUI_AddOnSkins
 
-A companion addon for **DragonUI** (World of Warcraft 3.3.5a) that reskins
+
+<div align="center">
+
+![Interface Version](https://img.shields.io/badge/Interface-30300-blue)
+![WoW Version](https://img.shields.io/badge/WoW-3.3.5a-orange)
+[![Version](https://img.shields.io/badge/Version-v1.+-green)](https://github.com/PentSec/DragonUI_AddOnSkins/releases/tag/v3.0.1)
+[![License](https://img.shields.io/badge/License-MIT-yellow)](LICENSE)
+![Downloads](https://img.shields.io/github/downloads/PentSec/DragonUI_AddOnSkins/total?label=Downloads&color=%23a400ff)
+
+
+Found a bug? [Open an issue](https://github.com/PentSec/DragonUI_AddOnSkins/issues).
+
+</div>
+
+<div align="center">
+ <h1>DragonUI AddOnSkins</h1>
+</div>
+
+A companion addon for **[DragonUI](https://github.com/NeticSoul/DragonUI)** (World of Warcraft 3.3.5a) that reskins
 third-party addons so they match DragonUI's visual theme.
 
 It is a standalone project: it depends on DragonUI at runtime, but it does not
@@ -38,7 +55,7 @@ Slash commands:
 | Command | Description |
 |---|---|
 | `/duidetails` | Apply the Details! skin immediately. |
-| `/duiaddonskins` | Print the current configuration state (diagnostics). |
+
 
 Applying or removing a skin takes effect immediately; no reload is required.
 
