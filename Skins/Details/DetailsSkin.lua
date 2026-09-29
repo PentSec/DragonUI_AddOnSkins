@@ -8,6 +8,7 @@
 local ADDON_NAME, addon = ...
 local DUI = _G.DragonUI
 local L = addon.L
+local media = addon.media   -- centralized palette (utils/media.lua)
 
 local DS = {}
 addon.DetailsSkinAddon = DS
@@ -27,7 +28,8 @@ local ATLAS_ROW    = "ui-damagemeters-bar-shadowbg"
 local ATLAS_EDGE   = "ui-damagemeters-bar-shadowedge"
 
 -- Geometry shared between the skin table and the manual anchors.
-local INTENSITY     = 0.55   -- alpha of the row shadow/edge strips
+-- Colours, alphas and textures come from utils/media.lua (the single source of
+-- truth); read them where used instead of repeating literals here.
 local HEADER_H      = 28     -- header band height, px
 local BAR_CENTRE_Y  = HEADER_H / 2
 local HEADER_OVERHANG = 4    -- header overhangs the window ends by this much
@@ -37,8 +39,6 @@ local BALL_R_INNER_X = 32
 local ICON_SIZE      = 16
 local TITLE_SIZE     = 13
 local floor = math.floor
-
-local PANEL_ALPHA_DEFAULT = 1
 
 -- damagemeters-background is a soft-edged sprite: its outer ~3px fade from
 -- opaque to transparent, which reads as left/right padding once the panel is
@@ -125,7 +125,7 @@ local function rowStrip(row, key, layer, region)
 		row[key] = tex
 	end
 	if not setRegion(tex, region) then return false end
-	tex:SetVertexColor(1, 1, 1, INTENSITY)
+	tex:SetVertexColor(1, 1, 1, media:GetRowStripAlpha())
 	tex:Show()
 	return anchorToBar(tex, bar)
 end
@@ -207,13 +207,13 @@ end
 -- Background panel opacity, 0..1 (persisted per-skin via Core's option store).
 function DS.GetPanelAlpha()
 	local v = addon:GetSkinOption("details", "panelAlpha")
-	if type(v) ~= "number" then v = PANEL_ALPHA_DEFAULT end
+	if type(v) ~= "number" then v = media:GetDefaultPanelAlpha() end
 	if v < 0 then v = 0 elseif v > 1 then v = 1 end
 	return v
 end
 
 function DS.SetPanelAlpha(v)
-	v = tonumber(v) or PANEL_ALPHA_DEFAULT
+	v = tonumber(v) or media:GetDefaultPanelAlpha()
 	if v < 0 then v = 0 elseif v > 1 then v = 1 end
 	addon:SetSkinOption("details", "panelAlpha", v)
 end
@@ -305,6 +305,12 @@ end
 
 -- The skin definition handed to Details' InstallSkin.
 local function skinTable()
+	-- Palette read once per install from the shared media source.
+	local accent   = media:GetAccentColor()
+	local white    = media:GetWhite()
+	local black    = media:GetBlack()
+	local backdrop = media:GetBackdropColor()
+
 	return {
 		file    = [[Interface\AddOns\Details\images\skins\flat_skin.blp]],
 		author  = "DragonUI",
@@ -312,7 +318,7 @@ local function skinTable()
 		site    = "https://github.com/PentSec/DragonUI_AddOnSkins",
 		desc    = "DragonUI — retail damage-meter look, with art from retail's",
 
-		micro_frames = { color = { 1, 1, 1, 1 }, font = "Arial Narrow", size = 10, textymod = 1 },
+		micro_frames = { color = { white[1], white[2], white[3], white[4] }, font = "Arial Narrow", size = 10, textymod = 1 },
 		can_change_alpha_head = true,
 		icon_anchor_main    = { -1, -5 },
 		icon_anchor_plugins = { -7, -13 },
@@ -328,11 +334,11 @@ local function skinTable()
 		icon_titletext_position = { 3, 3 },
 
 		instance_cprops = {
-			color = { 0.094, 0.094, 0.094, 0 },
-			bg_r = 0.094, bg_g = 0.094, bg_b = 0.094, bg_alpha = 0,
+			color = { backdrop[1], backdrop[2], backdrop[3], 0 },
+			bg_r = backdrop[1], bg_g = backdrop[2], bg_b = backdrop[3], bg_alpha = 0,
 			backdrop_texture = "Details Ground",
 			show_statusbar = false,
-			statusbar_info = { alpha = 0, overlay = { 0.094, 0.094, 0.094 } },
+			statusbar_info = { alpha = 0, overlay = { backdrop[1], backdrop[2], backdrop[3] } },
 			show_sidebars = false,
 			wallpaper = { enabled = false },
 			hide_icon = true,
@@ -344,12 +350,12 @@ local function skinTable()
 			instance_button_anchor = { -27, 1 },
 			menu_icons_size = 1.0,
 			desaturated_menu = false,
-			color_buttons = { 1, 1, 1, 1 },
+			color_buttons = { white[1], white[2], white[3], white[4] },
 			attribute_text = {
 				enabled = true, side = 1, shadow = true,
 				show_timer = { true, true, true },
 				text_size = TITLE_SIZE, text_face = "Friz Quadrata TT",
-				text_color = { 1, 0.82, 0, 1 },
+				text_color = { accent[1], accent[2], accent[3], accent[4] },
 				custom_text = "{name}", enable_custom_text = false,
 				anchor = { ROW_INSET_X - BALL_INNER_X, floor(BAR_CENTRE_Y - TITLE_SIZE / 2) },
 			},
@@ -361,15 +367,15 @@ local function skinTable()
 				texture_background      = MEDIA_ROW,
 				texture_background_file = SHEET,
 				texture_background_class_color = false,
-				fixed_texture_color = { 0, 0, 0 },
-				fixed_texture_background_color = { 1, 1, 1, 1 },
+				fixed_texture_color = { black[1], black[2], black[3] },
+				fixed_texture_background_color = { white[1], white[2], white[3], white[4] },
 				overlay_texture = MEDIA_EDGE,
-				overlay_color   = { 1, 1, 1, 1 },
+				overlay_color   = { white[1], white[2], white[3], white[4] },
 				texture_highlight = "Interface\\FriendsFrame\\UI-FriendsList-Highlight",
 				backdrop = {
 					enabled = false,
 					size = 12,
-					color = { 1, 1, 1, 1 },
+					color = { white[1], white[2], white[3], white[4] },
 					use_class_colors = false,
 				},
 				height = 24,
@@ -485,9 +491,33 @@ end
 
 
 -- Core.lua owns the ADDON_LOADED / PLAYER_LOGIN / PLAYER_ENTERING_WORLD wiring
--- for every skin, so this file needs no boot frame of its own.
+-- for every skin, so this file needs no boot frame of its own. The display
+-- metadata below is what the data-driven Options tab reads via
+-- addon:GetRegisteredSkins(); `options` renders this skin's extra controls.
 addon:RegisterSkin("details", "Details", {
 	install   = DS.Install,
 	apply     = DS.Apply,
 	uninstall = DS.Uninstall,
+
+	label       = L["Details! Skin"],
+	tabLabel    = L["Details!"],
+	desc        = L["Retail damage-meter theme for Details!."],
+	toggleLabel = L["Enable Details! Skin"],
+	toggleDesc  = L["Enable the DragonUI skin for Details!."],
+
+	options = function(section, C)
+		C:AddSlider(section, {
+			label = L["Background Opacity"] or "Background Opacity",
+			desc = L["Opacity of the Details! meter background texture."] or
+			       "Opacity of the Details! meter background texture.",
+			min = 0, max = 1, step = 0.05, isPercent = true,
+			getFunc = function()
+				return DS.GetPanelAlpha()
+			end,
+			setFunc = function(val)
+				DS.SetPanelAlpha(val)
+				if DS.RefreshPanelAlpha then DS.RefreshPanelAlpha() end
+			end,
+		})
+	end,
 })

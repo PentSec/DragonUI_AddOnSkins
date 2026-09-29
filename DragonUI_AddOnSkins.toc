@@ -21,6 +21,8 @@ Locales\Load_Locales.xml
 database.lua
 Core.lua
 
+utils\media.lua
+utils\frame.lua
 utils\atlas.lua
 Skins\Load_Skins.xml
 Settings\Load_Settings.xml
