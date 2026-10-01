@@ -1,9 +1,9 @@
 -- DragonUI_AddOnSkins — the "Addons Skin" Options tab.
 --
--- The tab is data-driven: it renders one sub-tab per skin registered in
--- Core.lua (via addon:GetRegisteredSkins()), using the display metadata each
--- skin declared at registration time. Adding a skin therefore needs NO edit to
--- this file — only the skin's own RegisterSkin call.
+-- Sub-tabs: "Skins" stacks one section per skin registered in Core.lua (via
+-- addon:GetRegisteredSkins()) in registration order, and "Other" is a
+-- placeholder for skins that do not exist yet. The tab is data-driven: adding a
+-- skin needs NO edit to this file — only the skin's own RegisterSkin call.
 
 local ADDON_NAME, addon = ...
 local L = addon.L
@@ -77,26 +77,31 @@ local function BuildSkinSubTab(scroll, skin)
     end
 end
 
-local activeSubTab = "details"
+local activeSubTab = "skins"
 
 local function BuildAddonSkinsTab(scroll)
     if not _G.DragonUI or not _G.DragonUI.PanelControls then return end
     local C = _G.DragonUI.PanelControls
     local Panel = _G.DragonUI.OptionsPanel
 
-    local subtabs = {}
-    local builders = {}
-
-    for _, skin in ipairs(addon:GetRegisteredSkins()) do
-        subtabs[#subtabs + 1] = { key = skin.key, label = skin.tabLabel or skin.label }
-        builders[skin.key] = function(s) BuildSkinSubTab(s, skin) end
-    end
-
-    subtabs[#subtabs + 1] = { key = "other", label = L["Other"] or "Other" }
-    builders.other = BuildOtherSubTab
+    -- Every skin lives under one "Skins" sub-tab, stacked in registration order.
+    -- Each skin keeps its own section, title and toggle, so a new skin still only
+    -- needs its RegisterSkin call to show up here.
+    local builders = {
+        skins = function(s)
+            for _, skin in ipairs(addon:GetRegisteredSkins()) do
+                BuildSkinSubTab(s, skin)
+            end
+        end,
+        other = BuildOtherSubTab,
+    }
+    local subtabs = {
+        { key = "skins", label = L["Skins"] or "Skins" },
+        { key = "other", label = L["Other"] or "Other" },
+    }
 
     if not builders[activeSubTab] then
-        activeSubTab = subtabs[1] and subtabs[1].key or "other"
+        activeSubTab = "skins"
     end
 
     C:AddSubTabs(scroll, subtabs, activeSubTab, function(key)

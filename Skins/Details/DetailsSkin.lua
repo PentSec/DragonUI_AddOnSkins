@@ -512,7 +512,6 @@ addon:RegisterSkin("details", "Details", {
 	uninstall = DS.Uninstall,
 
 	label       = function() return L["Details! Skin"] end,
-	tabLabel    = function() return L["Details!"] end,
 	desc        = function() return L["Retail damage-meter theme for Details!."] end,
 	toggleLabel = function() return L["Enable Details! Skin"] end,
 	toggleDesc  = function() return L["Enable the DragonUI skin for Details!."] end,

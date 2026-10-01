@@ -215,7 +215,6 @@ function addon:GetRegisteredSkins()
             list[#list + 1] = {
                 key             = key,
                 label           = resolveMeta(h.label, h.targetAddonName or key),
-                tabLabel        = resolveMeta(h.tabLabel),
                 desc            = resolveMeta(h.desc),
                 toggleLabel     = resolveMeta(h.toggleLabel),
                 toggleDesc      = resolveMeta(h.toggleDesc),

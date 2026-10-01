@@ -681,7 +681,6 @@ addon:RegisterSkin("skada", "Skada", {
     uninstall = DS.Uninstall,
 
     label       = function() return L["Skada Skin"] end,
-    tabLabel    = function() return L["Skada"] end,
     desc        = function() return L["Skada meter theme."] end,
     toggleLabel = function() return L["Enable Skada Skin"] end,
     toggleDesc  = function() return L["Enable the DragonUI skin for Skada."] end,
