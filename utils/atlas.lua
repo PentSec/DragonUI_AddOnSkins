@@ -7,7 +7,10 @@ local addon = select(2,...);
 addon._dir = addon._dir or "Interface\\AddOns\\DragonUI_AddOnSkins\\Textures\\"
 local assets = addon._dir;
 local unpack = unpack;
-local rui_DamageMeters = assets..'Details\\uidamagemeters';
+-- Keep the .blp extension. The client is lenient about a bare path here, but a
+-- skin that compares this entry against its own SHEET constant (or hands it to
+-- a StatusBar / LibSharedMedia) needs both strings to be the same file.
+local rui_DamageMeters = assets..'Details\\uidamagemeters.blp';
 
 addon.atlasinfo = {
 	['damagemeters-background'] = { rui_DamageMeters, 154, 148, 0.001953, 0.302734, 0.003906, 0.582031 },
