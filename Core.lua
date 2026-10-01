@@ -4,6 +4,8 @@
 local ADDON_NAME, addon = ...
 addon._dir = "Interface\\AddOns\\DragonUI_AddOnSkins\\Textures\\"
 
+local lower = string.lower
+
 _G.DragonUI_AddOnSkins = addon
 
 local _acl = LibStub("AceLocale-3.0-DragonUIAddOnSkins")
@@ -20,6 +22,10 @@ end
 -- the SavedVariables are available, so callers can tell "the player does not
 -- have this addon installed" from "installed but not loaded yet" without
 -- re-querying GetAddOnInfo on every access. Kept `local` (not a global).
+--
+-- Keys are lowercased: the client reports the canonical folder case ("MyAddon")
+-- while a skin is free to declare the target any way it reads best ("myaddon"),
+-- and a plain table lookup would call that "not installed".
 local function ScanInstalledAddons()
     local installed = {}
     local count = GetNumAddOns and GetNumAddOns() or 0
@@ -28,7 +34,7 @@ local function ScanInstalledAddons()
         local name, _, _, enabled = GetAddOnInfo(i)
         local loadable = enabled or (IsAddOnLoadOnDemand and IsAddOnLoadOnDemand(i))
         if name and loadable then
-            installed[name] = enabled and "enabled" or "lod"
+            installed[lower(name)] = enabled and "enabled" or "lod"
         end
     end
 
@@ -155,7 +161,7 @@ function addon:RegisterSkin(key, targetAddonName, handlers, realAddonName)
 
     local checkName = realAddonName or targetAddonName
     if checkName then
-        watching[checkName] = key
+        watching[lower(checkName)] = key
     end
 
     if checkName and IsAddOnLoaded(checkName) then
@@ -197,21 +203,30 @@ end
 
 -- True when the target is installed, regardless of whether it has loaded yet.
 -- Accepts the real folder name directly, or a registered skin's visible
--- targetAddonName (resolved to its realAddonName). Returns false before the
--- one-shot scan has run.
+-- targetAddonName (resolved to its realAddonName). Matching is case
+-- insensitive, so a skin may declare its target in any case.
 function addon:IsTargetInstalled(targetAddonName)
-    if not targetAddonName or not addon.installedAddons then
+    if not targetAddonName then
         return false
     end
 
-    if addon.installedAddons[targetAddonName] then
+    -- The snapshot is normally taken in OnInitialize; scanning on demand keeps
+    -- a "not installed" verdict from being a false negative just because the
+    -- caller asked before/without that run.
+    if not addon.installedAddons then
+        ScanInstalledAddons()
+    end
+
+    local wanted = lower(targetAddonName)
+
+    if addon.installedAddons[wanted] then
         return true
     end
 
     for _, h in pairs(skins) do
-        if h.targetAddonName == targetAddonName
+        if h.targetAddonName and lower(h.targetAddonName) == wanted
             and h.realAddonName
-            and addon.installedAddons[h.realAddonName]
+            and addon.installedAddons[lower(h.realAddonName)]
         then
             return true
         end
@@ -226,7 +241,9 @@ boot:RegisterEvent("PLAYER_LOGIN")
 boot:RegisterEvent("PLAYER_ENTERING_WORLD")
 boot:SetScript("OnEvent", function(_, event, name)
     if event == "ADDON_LOADED" then
-        local key = watching[name]
+        -- The client fires this with the canonical folder name, which is not
+        -- necessarily how the skin declared it; `watching` is lowercased.
+        local key = watching[lower(name)]
         if not key then return end
         if not IsSkinEnabled(key) then return end
         InstallSkin(key)
