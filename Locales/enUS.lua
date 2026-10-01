@@ -21,3 +21,4 @@ L["Enable Details! Skin"] = true
 L["Enable the DragonUI skin for Details!."] = true
 L["Background Opacity"] = true
 L["Opacity of the Details! meter background texture."] = true
+L["Target addon not found - this skin stays off until it is installed."] = true

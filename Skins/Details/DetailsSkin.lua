@@ -505,12 +505,13 @@ addon:RegisterSkin("details", "Details", {
 	toggleLabel = L["Enable Details! Skin"],
 	toggleDesc  = L["Enable the DragonUI skin for Details!."],
 
-	options = function(section, C)
+	options = function(section, C, available)
 		C:AddSlider(section, {
 			label = L["Background Opacity"] or "Background Opacity",
 			desc = L["Opacity of the Details! meter background texture."] or
 			       "Opacity of the Details! meter background texture.",
 			min = 0, max = 1, step = 0.05, isPercent = true,
+			disabled = not available,
 			getFunc = function()
 				return DS.GetPanelAlpha()
 			end,

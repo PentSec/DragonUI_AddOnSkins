@@ -76,7 +76,14 @@ function addon:GetSkinEnabled(key)
     return (cfg and cfg.enabled) == true
 end
 
+-- Turns a skin on/off. Turning one ON for a target the player does not have is
+-- refused (returns false, nothing written): the flag would sit there claiming
+-- an active skin that no addon can ever wear. Turning one OFF is always allowed,
+-- so a flag written while the target was installed can still be cleared later.
 function addon:SetSkinEnabled(key, value)
+    if value and not addon:IsSkinAvailable(key) then
+        return false
+    end
     value = value and true or false
     addon.settings = addon.settings or {}
     addon.settings[key] = value
@@ -85,6 +92,7 @@ function addon:SetSkinEnabled(key, value)
         addon.db.profile.skins[key] = addon.db.profile.skins[key] or {}
         addon.db.profile.skins[key].enabled = value
     end
+    return true
 end
 
 function addon:GetSkinOption(key, option)
@@ -233,6 +241,18 @@ function addon:IsTargetInstalled(targetAddonName)
     end
 
     return false
+end
+
+-- Whether a registered skin may be switched on: its target addon has to exist
+-- in the client's addon list. Installed-but-not-yet-loaded (load on demand)
+-- targets still count as available, because the ADDON_LOADED watcher applies
+-- the skin as soon as they do; what must never happen is offering a skin for an
+-- addon the player does not have. Accepts a skin key or a target addon name.
+function addon:IsSkinAvailable(target)
+    if not target then return false end
+    local handler = skins[target]
+    if handler then target = handler.realAddonName or handler.targetAddonName end
+    return self:IsTargetInstalled(target)
 end
 
 local boot = CreateFrame("Frame")

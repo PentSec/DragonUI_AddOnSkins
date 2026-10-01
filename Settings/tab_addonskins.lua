@@ -20,11 +20,32 @@ end
 -- Generic builder: a section, an optional description, the on/off toggle
 -- (always driven by the shared enable API) and any extra controls the skin
 -- declared through its `options(section, C)` callback.
+--
+-- Availability: a skin whose target addon the player does not have cannot do
+-- anything, so its whole section is presented dead — the toggle is disabled
+-- (AceGUI greys the label, desaturates the box and swallows clicks), the title
+-- is dimmed and a line says why. Installed-but-not-loaded targets stay usable:
+-- Core applies the skin the moment ADDON_LOADED arrives, so the flag can be set
+-- in advance. The same verdict is handed to `options` as a third argument, so a
+-- skin dims its own extra controls instead of pretending they act on something.
 local function BuildSkinSubTab(scroll, skin)
     if not _G.DragonUI or not _G.DragonUI.PanelControls then return end
     local C = _G.DragonUI.PanelControls
 
+    local available = true
+    if addon.IsSkinAvailable then
+        available = addon:IsSkinAvailable(skin.key) and true or false
+    end
+
     local section = C:AddSection(scroll, skin.label)
+
+    if not available then
+        if section.titletext then
+            section.titletext:SetTextColor(0.5, 0.5, 0.5)
+        end
+        C:AddDescription(section, L["Target addon not found - this skin stays off until it is installed."]
+            or "Target addon not found - this skin stays off until it is installed.")
+    end
 
     if skin.desc then
         C:AddDescription(section, skin.desc)
@@ -34,16 +55,25 @@ local function BuildSkinSubTab(scroll, skin)
         label = skin.toggleLabel or skin.label,
         desc = skin.toggleDesc,
         getFunc = function()
+            -- Nothing is skinned while the target is missing, so show it off
+            -- even if a flag written back when the addon was there is still
+            -- stored: the UI must not claim an active skin that cannot exist.
+            -- The stored flag is left untouched and applies again if the addon
+            -- comes back.
+            if not available then return false end
             return addon:GetSkinEnabled(skin.key)
         end,
         setFunc = function(val)
-            addon:SetSkinEnabled(skin.key, val)
+            -- SetSkinEnabled refuses to switch on a skin whose target is gone,
+            -- so a refused write must not leave the checkbox lying about it.
+            if not addon:SetSkinEnabled(skin.key, val) then return end
             if addon.RefreshSkin then addon:RefreshSkin(skin.key) end
         end,
+        disabled = not available,
     })
 
     if type(skin.options) == "function" then
-        skin.options(section, C)
+        skin.options(section, C, available)
     end
 end
 
