@@ -22,3 +22,16 @@ L["Enable the DragonUI skin for Details!."] = "DragonUI-Skin für Details! aktiv
 L["Background Opacity"] = "Hintergrunddeckkraft"
 L["Opacity of the Details! meter background texture."] = "Deckkraft der Hintergrundtextur des Details!-Messgeräts"
 L["Target addon not found - this skin stays off until it is installed."] = "Ziel-Addon nicht gefunden - dieser Skin bleibt aus, bis es installiert ist."
+
+-------------------------------
+-- Skada Skin Translation
+-------------------------------
+L["Skada is not installed."] = "Skada ist nicht installiert."
+L["Skada skin applied."] = "Das Skada-Skin wurde angewendet."
+L["Could not apply the skin - Skada is not ready yet."] = "Das Skin konnte nicht angewendet werden - Skada ist noch nicht bereit."
+L["Skada"] = "Skada"
+L["Skada Skin"] = "Skada-Skin"
+L["Skada meter theme."] = "Retail-Schadensmesser-Theme für Skada."
+L["Enable Skada Skin"] = "Skada-Skin aktivieren"
+L["Enable the DragonUI skin for Skada."] = "DragonUI-Skin für Skada aktivieren"
+L["Opacity of the Skada meter background texture."] = "Deckkraft der Hintergrundtextur des Skada-Messgeräts"

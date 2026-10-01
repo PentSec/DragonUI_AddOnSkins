@@ -22,3 +22,16 @@ L["Enable the DragonUI skin for Details!."] = "啟用 DragonUI 皮膚用於 Deta
 L["Background Opacity"] = "背景不透明度"
 L["Opacity of the Details! meter background texture."] = "Details! 計量表背景紋理的不透明度。"
 L["Target addon not found - this skin stays off until it is installed."] = "找不到目標插件 — 在安裝該插件前，此皮膚將保持關閉。"
+
+-------------------------------
+-- Skada Skin Translation
+-------------------------------
+L["Skada is not installed."] = "Skada 未安裝。"
+L["Skada skin applied."] = "Skada 皮膚已應用。"
+L["Could not apply the skin - Skada is not ready yet."] = "無法應用皮膚 - Skada 尚未就緒。"
+L["Skada"] = "Skada"
+L["Skada Skin"] = "Skada 皮膚"
+L["Skada meter theme."] = "適用於 Skada 的零售傷害計量表主題。"
+L["Enable Skada Skin"] = "啟用 Skada 皮膚"
+L["Enable the DragonUI skin for Skada."] = "啟用 DragonUI 皮膚用於 Skada。"
+L["Opacity of the Skada meter background texture."] = "Skada 計量表背景紋理的不透明度。"

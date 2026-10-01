@@ -3,4 +3,7 @@
   <!-- Details retail Skin -->
 	<Script file="Details\DetailsSkin.lua"/>
 
+  <!-- Skada-WoTLK retail Skin -->
+  <Script file="Skada\SkadaSkin.lua"/>
+
 </Ui>

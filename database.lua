@@ -8,7 +8,13 @@ addon.defaults = {
     profile = {
         skins = {
             details = {
-                enabled = true,
+                enabled = false,
+                options = {
+                    panelAlpha = 1,
+                },
+            },
+            skada = {
+                enabled = false,
                 options = {
                     panelAlpha = 1,
                 },
