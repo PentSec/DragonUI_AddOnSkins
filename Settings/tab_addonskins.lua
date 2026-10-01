@@ -40,7 +40,10 @@ local function BuildSkinSubTab(scroll, skin)
     local section = C:AddSection(scroll, skin.label)
 
     if not available then
-        if section.titletext then
+        local Panel = (_G.DragonUI and _G.DragonUI.OptionsPanel) or nil
+        if not (Panel and Panel.indexing)
+            and type(section.titletext) == "table"
+            and section.titletext.SetTextColor then
             section.titletext:SetTextColor(0.5, 0.5, 0.5)
         end
         C:AddDescription(section, L["Target addon not found - this skin stays off until it is installed."]
@@ -90,7 +93,10 @@ local function BuildAddonSkinsTab(scroll)
     local builders = {
         skins = function(s)
             for _, skin in ipairs(addon:GetRegisteredSkins()) do
-                BuildSkinSubTab(s, skin)
+                local ok, err = pcall(BuildSkinSubTab, s, skin)
+                if not ok and _G.DragonUI and _G.DragonUI.Debug then
+                    _G.DragonUI:Debug("AddonsSkin build failed for " .. (skin.key or "?") .. ": " .. tostring(err))
+                end
             end
         end,
         other = BuildOtherSubTab,
