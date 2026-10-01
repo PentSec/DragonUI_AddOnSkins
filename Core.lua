@@ -184,6 +184,25 @@ function addon:RegisterSkin(key, targetAddonName, handlers, realAddonName)
     end
 end
 
+-- Resolves one display-metadata field, which a skin may declare either as a
+-- string or as a function returning one.
+--
+-- Anything that comes out of the locale table MUST be declared as a function.
+-- Skins register at file load, which is before OnInitialize() re-points the
+-- addon.L proxy at the player's active locale: a `L["..."]` evaluated inside
+-- the registration table is frozen in the load-time language and never follows
+-- a locale switch, while the very same lookup inside a function is resolved
+-- when the Options tab asks for it.
+local function resolveMeta(value, fallback)
+    if type(value) == "function" then
+        value = value()
+    end
+    if value == nil then
+        return fallback
+    end
+    return value
+end
+
 -- Ordered snapshot of every registered skin, for data-driven UI (the Options
 -- tab) and diagnostics. Entries expose only the declared display metadata, not
 -- the live handler table. `label` defaults to the target addon name so a skin
@@ -195,11 +214,11 @@ function addon:GetRegisteredSkins()
         if h then
             list[#list + 1] = {
                 key             = key,
-                label           = h.label or h.targetAddonName or key,
-                tabLabel        = h.tabLabel,
-                desc            = h.desc,
-                toggleLabel     = h.toggleLabel,
-                toggleDesc      = h.toggleDesc,
+                label           = resolveMeta(h.label, h.targetAddonName or key),
+                tabLabel        = resolveMeta(h.tabLabel),
+                desc            = resolveMeta(h.desc),
+                toggleLabel     = resolveMeta(h.toggleLabel),
+                toggleDesc      = resolveMeta(h.toggleDesc),
                 options         = h.options,
                 targetAddonName = h.targetAddonName,
                 realAddonName   = h.realAddonName,

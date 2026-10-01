@@ -81,6 +81,11 @@ end
 
 -- Points a texture at one of our named atlas regions (utils/atlas.lua). When
 -- cropX is given, that many source pixels are trimmed off the left and right.
+--
+-- Returns false when the region is unknown OR when the sheet behind it did not
+-- load. SetTexture() does not error on a bad path -- it just paints nothing --
+-- so without the GetTexture() probe a typo in the atlas table would silently
+-- draw invisible art instead of falling back to the full sheet.
 local function setRegion(tex, name, cropX)
 	if not tex then return false end
 	local region = addon.atlasinfo and addon.atlasinfo[name]
@@ -91,6 +96,7 @@ local function setRegion(tex, name, cropX)
 		left, right = left + cropX * uPerPx, right - cropX * uPerPx
 	end
 	tex:SetTexture(region[1])
+	if tex.GetTexture and not tex:GetTexture() then return false end
 	tex:SetTexCoord(left, right, region[6], region[7])
 	return true
 end
@@ -494,17 +500,25 @@ end
 -- for every skin, so this file needs no boot frame of its own. The display
 -- metadata below is what the data-driven Options tab reads via
 -- addon:GetRegisteredSkins(); `options` renders this skin's extra controls.
+--
+-- The five display strings are FUNCTIONS on purpose. This registration runs at
+-- file load, before OnInitialize() re-points the addon.L proxy at the player's
+-- active locale; a plain L["..."] evaluated here would be captured in the
+-- load-time language and the Options tab would keep showing English to a
+-- Spanish player. Functions are resolved when the tab asks for the metadata.
 addon:RegisterSkin("details", "Details", {
 	install   = DS.Install,
 	apply     = DS.Apply,
 	uninstall = DS.Uninstall,
 
-	label       = L["Details! Skin"],
-	tabLabel    = L["Details!"],
-	desc        = L["Retail damage-meter theme for Details!."],
-	toggleLabel = L["Enable Details! Skin"],
-	toggleDesc  = L["Enable the DragonUI skin for Details!."],
+	label       = function() return L["Details! Skin"] end,
+	tabLabel    = function() return L["Details!"] end,
+	desc        = function() return L["Retail damage-meter theme for Details!."] end,
+	toggleLabel = function() return L["Enable Details! Skin"] end,
+	toggleDesc  = function() return L["Enable the DragonUI skin for Details!."] end,
 
+	-- `available` is the Options tab's verdict on whether Details! is installed
+	-- at all; without it the slider would happily tune a skin nothing can wear.
 	options = function(section, C, available)
 		C:AddSlider(section, {
 			label = L["Background Opacity"] or "Background Opacity",
