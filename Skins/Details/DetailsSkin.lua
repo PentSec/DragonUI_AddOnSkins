@@ -190,6 +190,8 @@ local function resetRows(inst)
 	end)
 end
 
+local resetPluginRows
+
 -- Removes everything our skin drew on a window and hands its header and rows
 -- back to Details. Used when the player picks another skin and on Uninstall.
 local function clearDecoration(inst)
@@ -199,7 +201,149 @@ local function clearDecoration(inst)
 	if base._duiMeterPanel then base._duiMeterPanel:Hide() end
 	detailsHeaderShown(inst, true)
 	resetRows(inst)
+	resetPluginRows()
 end
+
+-- ============================================================================
+-- TINYTHREAT PLUGIN SUPPORT
+-- ============================================================================
+
+local function getTinyThreatPlugin()
+	local D = details()
+	if not D then return nil end
+	local p = _G.DETAILS_PLUGIN_TINY_THREAT
+	if type(p) == "table" and type(p.Rows) == "table" then return p end
+	if type(D.GetPlugin) == "function" then
+		p = D:GetPlugin("DETAILS_PLUGIN_TINY_THREAT")
+		if type(p) == "table" and type(p.Rows) == "table" then return p end
+	end
+	return nil
+end
+
+local stampTinyThreatRow
+
+local function hookTinyThreatRow(row, inst)
+	if row._duiHooksApplied or not row.statusbar then return end
+	row._duiHooksApplied = true
+
+	-- Red de seguridad: re-estampar al mostrarse (StatusBar puede resetear TexCoord).
+	row.statusbar:HookScript("OnShow", function(self)
+		local r = self.MyObject
+		if r and r._duiSkinActive and r._texture then
+			setRegion(r._texture, ATLAS_FILL)
+		end
+	end)
+
+	-- Paso E: 3.3.5 reinicia TexCoord al cambiar valor; reaplicamos el recorte.
+	row.statusbar:HookScript("OnValueChanged", function(self)
+		local r = self.MyObject
+		if r and r._duiSkinActive and r._texture then
+			setRegion(r._texture, ATLAS_FILL)
+		end
+	end)
+end
+
+function stampTinyThreatRow(row, inst)
+	if not row or not row.statusbar then return end
+	row._duiSkinActive = true
+	rowStrip(row, "_duiBarBG", "BACKGROUND", ATLAS_ROW)
+	rowStrip(row, "_duiBarEdge", "OVERLAY", ATLAS_EDGE)
+	if row.background then row.background:Hide() end
+	if row._texture then setRegion(row._texture, ATLAS_FILL) end
+	hookTinyThreatRow(row, inst)
+end
+
+local function stampPluginRows(inst)
+	local p = getTinyThreatPlugin()
+	if not p then return end
+
+	if type(p.GetPluginInstance) == "function" then
+		local pInst = p:GetPluginInstance()
+		if pInst and pInst.skin ~= SKIN_NAME then return end
+	end
+
+	if type(p.Rows) == "table" then
+		for _, row in ipairs(p.Rows) do
+			stampTinyThreatRow(row, inst)
+		end
+	end
+end
+
+function resetPluginRows()
+	local p = getTinyThreatPlugin()
+	if not p or type(p.Rows) ~= "table" then return end
+	local touched = false
+	for _, row in ipairs(p.Rows) do
+		if row and row._duiSkinActive then touched = true; break end
+	end
+	if not touched then return end
+
+	if type(p.Rows) == "table" then
+		for _, row in ipairs(p.Rows) do
+			if row then
+				row._duiSkinActive = false
+				if row._duiBarBG then row._duiBarBG:Hide() end
+				if row._duiBarEdge then row._duiBarEdge:Hide() end
+				if row.background then row.background:Show() end
+				if row._texture then row._texture:SetTexCoord(0, 1, 0, 1) end
+			end
+		end
+	end
+
+	if type(p.RefreshRows) == "function" then
+		pcall(p.RefreshRows, p)
+	end
+end
+
+local function hookTinyThreatPlugin()
+	local p = getTinyThreatPlugin()
+	if not p or p._duiHooked then return end
+	p._duiHooked = true
+
+	if type(p.NewRow) == "function" then
+		hooksecurefunc(p, "NewRow", function(self, i)
+			local pInst = type(self.GetPluginInstance) == "function" and self:GetPluginInstance()
+			if pInst and pInst.skin == SKIN_NAME then
+				local row = type(self.Rows) == "table" and self.Rows[i]
+				if row then
+					stampTinyThreatRow(row, pInst)
+				end
+			end
+		end)
+	end
+
+	if type(p.RefreshRow) == "function" then
+		hooksecurefunc(p, "RefreshRow", function(self, row)
+			local pInst = type(self.GetPluginInstance) == "function" and self:GetPluginInstance()
+			if pInst and pInst.skin == SKIN_NAME then
+				stampTinyThreatRow(row, pInst)
+			end
+		end)
+	end
+
+	-- Primer pase sobre filas existentes de la ventana del plugin.
+	if type(p.GetPluginInstance) == "function" then
+		local pInst = p:GetPluginInstance()
+		if pInst and pInst.skin == SKIN_NAME then
+			stampPluginRows(pInst)
+		end
+	end
+end
+
+local function hookInstallPlugin(D)
+	if DS._ourInstallPluginHooked or type(D.InstallPlugin) ~= "function" then return end
+	DS._ourInstallPluginHooked = true
+	hooksecurefunc(D, "InstallPlugin", function(self, hook_type, plugin_name, icon, plugin_object, plugin_absolute_name, ...)
+		if plugin_absolute_name == "DETAILS_PLUGIN_TINY_THREAT" then
+			hookTinyThreatPlugin()
+			local pInst = type(plugin_object.GetPluginInstance) == "function" and plugin_object:GetPluginInstance()
+			if pInst and pInst.skin == SKIN_NAME then
+				stampPluginRows(pInst)
+			end
+		end
+	end)
+end
+
 
 -- ============================================================================
 -- PUBLIC API
@@ -267,6 +411,7 @@ function DS.DecorateWindow(inst)
 	hdr:Show()
 	detailsHeaderShown(inst, false)
 	stampRows(inst)
+	stampPluginRows(inst)
 end
 
 -- ============================================================================
@@ -384,14 +529,15 @@ local function skinTable()
 					color = { white[1], white[2], white[3], white[4] },
 					use_class_colors = false,
 				},
-				height = 24,
+				height = 16,
 				space = { left = ROW_INSET_X, right = -4, between = 4 },
 				alpha = 1,
 				no_icon = false,
 				icon_file = "Interface\\AddOns\\Details\\images\\classes_small",
 				icon_offset = { 0, 0 },
 				start_after_icon = true,
-				use_spec_icons = false,
+				use_spec_icons = true,
+				spec_file = "Interface\\AddOns\\Details\\images\\spec_icons_normal",
 				font_face = "Arial Narrow",
 				font_face_file = "Fonts\\ARIALN.TTF",
 				font_size = 14,
@@ -423,6 +569,8 @@ function DS.Install(force)
 	if not D then return false end
 	registerMedia()
 	hookChangeSkin(D)
+	hookInstallPlugin(D)
+	hookTinyThreatPlugin()
 	if D.skins[SKIN_NAME] and not force then return true end
 	if force then D.skins[SKIN_NAME] = nil end
 	local ok, installed = pcall(D.InstallSkin, D, SKIN_NAME, skinTable())
