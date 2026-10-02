@@ -15,3 +15,5 @@ __pycache__/
 *.lua.bak
 *.bak2
 docs/
+.atl/
+*.sh
