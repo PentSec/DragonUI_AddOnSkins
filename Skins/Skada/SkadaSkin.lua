@@ -47,7 +47,7 @@ local BAR_SPACING = 4
 local LEFT_TO_RIGHT = 1
 local RIGHT_TO_LEFT = 2
 
-local ipairs, pairs, type, pcall, hooksecurefunc = ipairs, pairs, type, pcall, hooksecurefunc
+local ipairs, pairs, next, type, pcall, hooksecurefunc = ipairs, pairs, next, type, pcall, hooksecurefunc
 local min, max = math.min, math.max
 
 
@@ -336,22 +336,81 @@ end
 
 -- What the player had before the skin first touched a window. Uninstall hands
 -- this back rather than Skada's stock defaults, which would silently discard a
--- profile the player had actually configured. Weak keys: a closed Skada window
--- takes its snapshot with it.
-local dbSnapshot = setmetatable({}, { __mode = "k" })
+-- profile the player had actually configured.
+--
+-- It has to be PERSISTED, not a local table. Our writes land in Skada's own
+-- AceDB (SkadaDB), so they outlive the session, while a snapshot held only in
+-- memory dies with it. The consequence of getting this wrong is not a cosmetic
+-- glitch: after one /reload the snapshot is gone while our values are still in
+-- SkadaDB, so Uninstall has nothing to restore and the player is left wearing
+-- "Arial Narrow", barspacing 4 and our title font FOREVER, with no toggle that
+-- can undo it.
+--
+-- Keyed the same two things Skada keys its own persisted window table by: the
+-- AceDB profile name plus db.name. That is what lets the snapshot find its
+-- window again on the next login without holding a reference to a table that no
+-- longer exists.
+local function snapshotStore()
+    local s = addon.settings
+    if type(s) ~= "table" then return nil end
+    s.dbSnapshots = s.dbSnapshots or {}
+    return s.dbSnapshots
+end
 
+-- store[profile][windowName] -> snapshot. Two levels rather than one joined key,
+-- so no window name can ever collide with a separator.
+--
+-- profile is Skada's own AceDB profile name, which is also how Skada scopes its
+-- persisted windows: window #1 in profile "Raid" is a different table from
+-- window #1 in profile "PvP", and the player's settings for each are different.
+-- db.name is unique among live windows (CreateWindow runs CheckDuplicate), so
+-- the pair identifies one window across sessions.
+local function snapshotKey(p)
+    local S = skada()
+    local data = S and S.data
+    local profile = (data and data.GetCurrentProfile and data:GetCurrentProfile()) or "?"
+    return tostring(profile), tostring(p and p.name or "?")
+end
+
+-- Returns the [profile] bucket, or nil when there is nothing stored for it and
+-- `create` is false.
+local function snapshotBucket(profile, create)
+    local store = snapshotStore()
+    if not store then return nil end
+    local bucket = store[profile]
+    if not bucket and create then
+        bucket = {}
+        store[profile] = bucket
+    end
+    return bucket
+end
+
+-- Only ever captures ONCE per window. On the first apply of a session the db
+-- still holds the player's values; from then on it holds ours, so re-capturing
+-- would snapshot the skin over itself and Uninstall would "restore" our own
+-- settings.
+--
+-- Deliberately covers ONLY what writeSettings actually writes. Restoring a key
+-- this skin never touched would hand back a stale value and silently discard
+-- whatever the player changed during the skinned session - and now that the
+-- snapshot is persisted, "during the skinned session" can stretch across many
+-- logins. p.buttons is the concrete case: Skada owns button visibility, we only
+-- rely on enabletitle to make Skada draw the header at all.
 local function snapshotDb(p)
-    if dbSnapshot[p] then return end
+    local profile, name = snapshotKey(p)
+    local bucket = snapshotBucket(profile, true)
+    if not bucket or bucket[name] then return end
     local snap = {}
     for _, key in ipairs(OWNED_KEYS) do
         snap[key] = copyValue(p[key])
     end
-    snap.buttons = copyValue(p.buttons)
-    dbSnapshot[p] = snap
+    bucket[name] = snap
 end
 
 local function restoreDb(p)
-    local snap = dbSnapshot[p]
+    local profile, name = snapshotKey(p)
+    local bucket = snapshotBucket(profile, false)
+    local snap = bucket and bucket[name]
     if not snap then return false end
     for _, key in ipairs(OWNED_KEYS) do
         -- Written out rather than the `cond and v or nil` shorthand: a stored
@@ -366,13 +425,24 @@ local function restoreDb(p)
             p[key] = copyValue(saved)
         end
     end
-    if snap.buttons == nil then
-        p.buttons = nil
-    else
-        p.buttons = copyValue(snap.buttons)
-    end
-    dbSnapshot[p] = nil
+    -- Consumed: a later re-apply must snapshot afresh, from whatever the player
+    -- has by then, rather than resurrect this capture.
+    bucket[name] = nil
     return true
+end
+
+-- Drops captures whose window no longer exists, so a deleted or renamed Skada
+-- window cannot leave its snapshot behind forever in the SavedVariables.
+-- `liveKeys` is a set of [profile]/windowName pairs of windows still open.
+local function pruneSnapshots(liveKeys)
+    local store = snapshotStore()
+    if not store then return end
+    for profile, bucket in pairs(store) do
+        for name in pairs(bucket) do
+            if not liveKeys[profile .. "/" .. name] then bucket[name] = nil end
+        end
+        if next(bucket) == nil then store[profile] = nil end
+    end
 end
 
 -- Writes the keys Skada reads. Called BEFORE mod:ApplySettings, because that
@@ -584,6 +654,35 @@ end
 -- LIFECYCLE
 -- ============================================================================
 
+function DS.Restore()
+    local S = skada()
+    if not S then return false end
+    registerMedia()
+    installHooks()
+    DS.Install(false)
+    -- Decorate existing windows that still wear our skin. Writes nothing.
+    --
+    -- Nothing to write, in fact: our values went into Skada's AceDB, so they are
+    -- already sitting in win.db when this runs. Re-asserting them would be a
+    -- no-op at best. What matters is NOT snapshotting here either - by boot time
+    -- win.db holds our settings, not the player's, so a capture taken now would
+    -- snapshot the skin over itself and Uninstall would later "restore" our own
+    -- values while believing it was giving the player's back.
+    --
+    -- This is also why Skada has no equivalent of the Details reload bug: there,
+    -- ChangeSkin rewrote the live instance on every login and destroyed the
+    -- player's config. Here the config IS the persisted table, so there is
+    -- nothing separate to clobber and nothing separate to re-adopt from.
+    forEachBarWindow(function(win)
+        if win and win.db and win.db.display == "bar" then
+            -- Only stamp bars and decorate; do NOT writeSettings or snapshotDb.
+            stampBars(win)
+            decorateWindow(win)
+        end
+    end)
+    return true
+end
+
 -- Registers the media entry and the hooks. Deliberately does NOT force a
 -- re-apply: Skada may be part way through its own ApplySettings while it
 -- restores windows, and re-entering it from here is how skins corrupt db.
@@ -628,6 +727,18 @@ function DS.Uninstall()
 
     removeHooks()
 
+    -- Collected across every Skada window, not just the bar ones: a window whose
+    -- display is not "bar" never got our art, but it can still hold a snapshot
+    -- from when it did, and pruning must not mistake it for a deleted window.
+    local liveKeys = {}
+    for _, win in ipairs(S.windows or {}) do
+        local p = win and win.db
+        if type(p) == "table" then
+            local profile, name = snapshotKey(p)
+            liveKeys[profile .. "/" .. name] = true
+        end
+    end
+
     forEachBarWindow(function(win)
         local p = win.db
         resetBars(win)
@@ -643,6 +754,8 @@ function DS.Uninstall()
             pcall(win.display.ApplySettings, win.display, win)
         end
     end)
+
+    pruneSnapshots(liveKeys)
 
     if type(S.UpdateDisplay) == "function" then
         pcall(S.UpdateDisplay, S, true)
@@ -678,6 +791,7 @@ end
 addon:RegisterSkin("skada", "Skada", {
     install   = DS.Install,
     apply     = DS.Apply,
+    restore   = DS.Restore,
     uninstall = DS.Uninstall,
 
     label       = function() return L["Skada Skin"] end,

@@ -59,14 +59,104 @@ local function details()
 	return nil
 end
 
--- Calls fn(instance) for every live Details window. No-op if Details is not ready.
+-- Calls fn(instance, index) for every live Details window. No-op if Details is not
+-- ready. The index is the one Details' own profile uses to address a window, so
+-- callers can look up what was saved for it.
 local function forEachInstance(D, fn)
 	if not D then return end
 	local count = (type(D.GetNumInstancesAmount) == "function" and D:GetNumInstancesAmount()) or 0
 	for i = 1, count do
 		local inst = D.GetInstance and D:GetInstance(i)
-		if inst then fn(inst) end
+		if inst then fn(inst, i) end
 	end
+end
+
+-- Which windows wear our skin, kept in OUR saved variables (not on Details'
+-- instance tables). If Details restores a window before our skin is registered
+-- it silently drops it to its default skin; this is how Restore knows to put
+-- back only those windows. Details' instance id is `meu_id` (GetId()).
+local function instKey(inst)
+	return inst and (inst.meu_id or inst.id) or nil
+end
+
+local function windowMarks(create)
+	local s = _G.DragonUI_AddOnSkinsSettings
+	if type(s) ~= "table" then return nil end
+	if create and type(s.detailsWindows) ~= "table" then s.detailsWindows = {} end
+	return s.detailsWindows
+end
+
+local function markWindow(inst, on)
+	local key = instKey(inst)
+	if not key then return end
+	local m = windowMarks(on)
+	if m then m[key] = on and true or nil end
+end
+
+local function isMarked(inst)
+	local m = windowMarks(false)
+	local key = instKey(inst)
+	return (m and key and m[key]) and true or false
+end
+
+-- Recursive table copy. The values we read back out of Details' profile must not
+-- share sub-tables with the live instance: Details mutates row_info.space and
+-- friends in place, and a shared table would write through into the profile.
+local function deepCopy(value)
+	if type(value) ~= "table" then return value end
+	local out = {}
+	for k, v in pairs(value) do out[k] = deepCopy(v) end
+	return out
+end
+
+-- What Details still remembers for a window, straight out of its active profile.
+--
+-- Details loads a profile by COPYING it into the instance and then running
+-- ChangeSkin, and ChangeSkin only ever mutates the instance -- the profile entry
+-- keeps the state the player last saved. That makes it the one trustworthy copy
+-- of "our look + whatever the player tweaked in Details' options".
+local function savedInstanceConfig(index)
+	local D = details()
+	if not D then return nil end
+	if type(D.GetCurrentProfileName) ~= "function" or type(D.GetProfile) ~= "function" then return nil end
+	local profile = D:GetProfile(D:GetCurrentProfileName(), false)
+	local entry = profile and profile.instances and profile.instances[index]
+	if type(entry) ~= "table" then return nil end
+	return entry
+end
+
+-- Instance keys ApplyProfile handles itself and must not be copied back: 'skin'
+-- would flip the window off ours, and the rest are Details' own bookkeeping.
+local function isPlayerOwnedKey(key)
+	if type(key) ~= "string" then return false end
+	if key == "skin" or key == "posicao" or key == "StatusBarSaved" then return false end
+	return key:sub(1, 2) ~= "__"
+end
+
+-- Puts the saved config back on the instance and re-applies it, mirroring how
+-- Details loads a skin preset (janela_options.lua, loadStyle).
+--
+-- Why this is needed: at boot Details restores its profile while our skin is not
+-- registered yet, so it silently drops the window to its default skin. Putting
+-- our skin back runs ChangeSkin again, and a real skin change rewrites the whole
+-- instance with the skin's cprops -- which is what put bar height back to 16 and
+-- dropped every other option the player had changed. ChangeSkin again with the
+-- skin ALREADY set counts as "just updating": Details rebuilds the bars from the
+-- values on the instance without overwriting them, so the player's settings
+-- survive while the DragonUI look stays on.
+local function adoptSavedConfig(inst, index)
+	if inst.skin ~= SKIN_NAME or type(inst.ChangeSkin) ~= "function" then return false end
+	local saved = savedInstanceConfig(index)
+	if not saved then return false end
+
+	for key, value in pairs(saved) do
+		if isPlayerOwnedKey(key) then
+			inst[key] = deepCopy(value)
+		end
+	end
+
+	pcall(inst.ChangeSkin, inst)
+	return true
 end
 
 -- Calls fn(row) for every row of a window. Returns false when it has no rows yet.
@@ -190,24 +280,8 @@ local function resetRows(inst)
 	end)
 end
 
-local resetPluginRows
-
--- Removes everything our skin drew on a window and hands its header and rows
--- back to Details. Used when the player picks another skin and on Uninstall.
-local function clearDecoration(inst)
-	local base = inst and inst.baseframe
-	if not base then return end
-	if base._duiMeterHeader then base._duiMeterHeader:Hide() end
-	if base._duiMeterPanel then base._duiMeterPanel:Hide() end
-	detailsHeaderShown(inst, true)
-	resetRows(inst)
-	resetPluginRows()
-end
-
--- ============================================================================
--- TINYTHREAT PLUGIN SUPPORT
--- ============================================================================
-
+-- Declared before resetPluginRows_impl, which calls it: a `local function` is
+-- only visible to code written AFTER it.
 local function getTinyThreatPlugin()
 	local D = details()
 	if not D then return nil end
@@ -219,6 +293,52 @@ local function getTinyThreatPlugin()
 	end
 	return nil
 end
+
+local resetPluginRows
+
+-- Forward-declare for clearDecoration (called before declaration point).
+local function resetPluginRows_impl(force)
+	local p = getTinyThreatPlugin()
+	if not p or type(p.Rows) ~= "table" then return end
+	local touched = false
+	for _, row in ipairs(p.Rows) do
+		if row and row._duiSkinActive then touched = true; break end
+	end
+	if not touched and not force then return end
+
+	for _, row in ipairs(p.Rows) do
+		if row then
+			row._duiSkinActive = false
+			if row._duiBarBG then row._duiBarBG:Hide() end
+			if row._duiBarEdge then row._duiBarEdge:Hide() end
+			if row.background then row.background:Show() end
+			if row._texture then row._texture:SetTexCoord(0, 1, 0, 1) end
+		end
+	end
+
+	-- TinyThreat assigns row.texture from the window's row_info only inside its
+	-- own RefreshRow. Our rows still hold the atlas file, so without this they
+	-- keep drawing the whole DragonUI sheet after the skin is gone.
+	if type(p.RefreshRows) == "function" then
+		pcall(p.RefreshRows, p)
+	end
+end
+
+-- Removes everything our skin drew on a window and hands its header and rows
+-- back to Details. Used when the player picks another skin and on Uninstall.
+local function clearDecoration(inst)
+	local base = inst and inst.baseframe
+	if not base then return end
+	if base._duiMeterHeader then base._duiMeterHeader:Hide() end
+	if base._duiMeterPanel then base._duiMeterPanel:Hide() end
+	detailsHeaderShown(inst, true)
+	resetRows(inst)
+	resetPluginRows_impl()
+end
+
+-- ============================================================================
+-- TINYTHREAT PLUGIN SUPPORT
+-- ============================================================================
 
 local stampTinyThreatRow
 
@@ -270,29 +390,7 @@ local function stampPluginRows(inst)
 end
 
 function resetPluginRows()
-	local p = getTinyThreatPlugin()
-	if not p or type(p.Rows) ~= "table" then return end
-	local touched = false
-	for _, row in ipairs(p.Rows) do
-		if row and row._duiSkinActive then touched = true; break end
-	end
-	if not touched then return end
-
-	if type(p.Rows) == "table" then
-		for _, row in ipairs(p.Rows) do
-			if row then
-				row._duiSkinActive = false
-				if row._duiBarBG then row._duiBarBG:Hide() end
-				if row._duiBarEdge then row._duiBarEdge:Hide() end
-				if row.background then row.background:Show() end
-				if row._texture then row._texture:SetTexCoord(0, 1, 0, 1) end
-			end
-		end
-	end
-
-	if type(p.RefreshRows) == "function" then
-		pcall(p.RefreshRows, p)
-	end
+	resetPluginRows_impl()
 end
 
 local function hookTinyThreatPlugin()
@@ -426,18 +524,32 @@ local function hookChangeSkin(D)
 	local orig = D.ChangeSkin
 	DS._origChangeSkin = orig
 	DS._ourChangeSkin = function(self, skinName, ...)
-		local asked = skinName or (type(self) == "table" and self.skin) or nil
+		local wasOurs = (type(self) == "table" and self.skin == SKIN_NAME) or false
+		local asked = skinName ~= nil and skinName or (type(self) == "table" and self.skin) or nil
+		local explicit = (skinName ~= nil and skinName ~= SKIN_NAME)
 		local installed = (D.skins and D.skins[SKIN_NAME] ~= nil) and true or false
 		local a, b, c = orig(self, skinName, ...)
 		if type(self) ~= "table" then return a, b, c end
 
 		if self.skin == SKIN_NAME then
 			if installed then DS.DecorateWindow(self) end
+			markWindow(self, true)
 		else
 			clearDecoration(self)
-			if installed and asked ~= SKIN_NAME then
-				addon:SetSkinEnabled("details", false)
-				if DUI and DUI.After then DUI:After(0, DS.Uninstall) end
+			-- Forget the window only when the player picked another skin for it.
+			-- Details' own fallback (skin not registered yet) passes no skin name.
+			if wasOurs and explicit then markWindow(self, false) end
+			-- Only turn toggle off when user explicitly removed our skin from
+			-- a window that WAS ours, and no other window still wears it.
+			if wasOurs and explicit and installed then
+				local anyOurs = false
+				forEachInstance(D, function(inst)
+					if inst.skin == SKIN_NAME then anyOurs = true; end
+				end)
+				if not anyOurs then
+					addon:SetSkinEnabled("details", false)
+					if DUI and DUI.After then DUI:After(0, DS.Uninstall) end
+				end
 			end
 		end
 		return a, b, c
@@ -562,6 +674,42 @@ local function skinTable()
 	}
 end
 
+-- True when any Details window still wears our skin (boot-time cleanup check).
+function DS.IsWorn()
+	local D = details()
+	local worn = false
+	forEachInstance(D, function(inst)
+		if inst.skin == SKIN_NAME then worn = true end
+	end)
+	return worn
+end
+
+function DS.Restore()
+	local D = details()
+	if not D then return false end
+	registerMedia()
+	hookChangeSkin(D)
+	hookInstallPlugin(D)
+	hookTinyThreatPlugin()
+	DS.Install(false)
+	forEachInstance(D, function(inst, index)
+		if not inst.baseframe then return end
+		if inst.skin == SKIN_NAME then
+			DS.DecorateWindow(inst)
+			markWindow(inst, true)
+		elseif isMarked(inst) and D.skins[SKIN_NAME] and type(inst.ChangeSkin) == "function" then
+			-- Details restored this window before our skin was registered and
+			-- dropped it to its default skin. Put back just the windows that
+			-- were ours; the hook decorates them.
+			pcall(inst.ChangeSkin, inst, SKIN_NAME)
+			-- ...and hand the player's own settings back before this session can
+			-- save the window again with our defaults in it.
+			adoptSavedConfig(inst, index)
+		end
+	end)
+	return true
+end
+
 -- Registers (or, when force, re-registers) the skin with Details. Never forced
 -- automatically: Details may be reading the slot while it restores its windows.
 function DS.Install(force)
@@ -578,7 +726,10 @@ function DS.Install(force)
 end
 
 -- Installs the skin, marks it chosen and pushes it to every open window. This is
--- the button's path and the path the boot runs, so the two can never diverge.
+-- the button's path and the only path that (re)writes our cprops: the boot runs
+-- DS.Restore instead, which restores the player's settings instead of resetting
+-- them. So clicking the toggle always gives the DragonUI look back, and booting
+-- never takes their choices away.
 function DS.Apply()
 	local D = details()
 	if not D then return false end
@@ -592,8 +743,13 @@ function DS.Apply()
 	local applied = 0
 	forEachInstance(D, function(inst)
 		if inst.ChangeSkin then
+			-- Details only writes a skin's cprops when the skin actually changes,
+			-- so a window already wearing DragonUI would ignore the apply. Clearing
+			-- the name first is Details' own trick for a real re-apply (loadStyle).
+			inst.skin = ""
 			pcall(inst.ChangeSkin, inst, SKIN_NAME)
 			DS.DecorateWindow(inst)
+			markWindow(inst, true)
 			applied = applied + 1
 		end
 	end)
@@ -604,13 +760,15 @@ end
 -- drop ours from D.skins: a window left pointing at SKIN_NAME while the table
 -- entry is nil makes Details' options window crash on GetSkin().
 function DS.Uninstall()
-	addon:SetSkinEnabled("details", false)
 	local D = details()
+	if D then unhookChangeSkin(D) end
+
+	addon:SetSkinEnabled("details", false)
+
 	if not D then
 		unhookChangeSkin(nil)
 		return
 	end
-	unhookChangeSkin(D)
 
 	local fallback = D.default_skin_to_use or "Minimalistic"
 	local stillWorn = false
@@ -623,6 +781,13 @@ function DS.Uninstall()
 		clearDecoration(inst)
 	end)
 
+	-- Toggle is off: no window is "ours" any more.
+	local marks = windowMarks(false)
+	if marks then for k in pairs(marks) do marks[k] = nil end end
+
+	-- All windows are on their new skin now: make TinyThreat re-read it.
+	resetPluginRows_impl(true)
+
 	-- If a window could not be re-skinned, keep ours registered so GetSkin() stays valid.
 	if not stillWorn then
 		D.skins[SKIN_NAME] = nil
@@ -631,7 +796,21 @@ end
 
 
 SLASH_DUIDETAILS1 = "/duidetails"
-SlashCmdList["DUIDETAILS"] = function()
+SlashCmdList["DUIDETAILS"] = function(msg)
+	if type(msg) == "string" and msg:lower():find("status") then
+		local D = details()
+		DUI:Print("|cff1784d1DragonUI|r Details status: toggle=" .. tostring(addon:GetSkinEnabled("details")) ..
+			" registered=" .. tostring(D and D.skins and D.skins[SKIN_NAME] ~= nil))
+		forEachInstance(D, function(inst, index)
+			local ri = inst.row_info
+			local saved = savedInstanceConfig(index)
+			local savedRi = saved and saved.row_info
+			DUI:Print(("  window %s: skin=%s marked=%s barHeight=%s savedHeight=%s"):format(
+				tostring(instKey(inst)), tostring(inst.skin), tostring(isMarked(inst)),
+				tostring(ri and ri.height), tostring(savedRi and savedRi.height)))
+		end)
+		return
+	end
 	if not DS.IsDetailsLoaded() then
 		DUI:Print("|cff1784d1DragonUI|r: " .. L["Details! is not installed."])
 		return
@@ -657,6 +836,8 @@ end
 addon:RegisterSkin("details", "Details", {
 	install   = DS.Install,
 	apply     = DS.Apply,
+	restore   = DS.Restore,
+	isWorn    = DS.IsWorn,
 	uninstall = DS.Uninstall,
 
 	label       = function() return L["Details! Skin"] end,

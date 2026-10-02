@@ -124,10 +124,45 @@ local function IsSkinEnabled(key)
     return addon:GetSkinEnabled(key)
 end
 
+-- Early saved-variable read, before OnInitialize; used by RegisterSkin/boot.
+local function IsEnabledRaw(key)
+    local s = _G.DragonUI_AddOnSkinsSettings
+    if type(s) == "table" and s[key] ~= nil then return s[key] and true or false end
+    local db = _G.DragonUI_AddOnSkinsDB
+    if type(db) == "table" then
+        local prof = db.profile
+        if type(prof) == "table" then
+            local skins = prof.skins
+            if type(skins) == "table" then
+                local c = skins[key]
+                if type(c) == "table" and c.enabled ~= nil then return c.enabled and true or false end
+            end
+        end
+    end
+    return false
+end
+
 local function InstallSkin(key)
     local handlers = skins[key]
     if handlers and handlers.install then
         pcall(handlers.install, false)
+    end
+end
+
+local function RestoreSkin(key)
+    local handlers = skins[key]
+    if not handlers then return end
+    if IsEnabledRaw(key) then
+        -- BOOT path: only register, never force-change windows or rewrite settings.
+        if handlers.install then pcall(handlers.install, false) end
+        -- Decorate existing windows that already wear our skin, without ChangeSkin.
+        if handlers.restore then pcall(handlers.restore) end
+    else
+        -- Skin off: only clean if a window still wears it; never write settings.
+        if handlers.isWorn and handlers.uninstall then
+            local ok, worn = pcall(handlers.isWorn)
+            if ok and worn then pcall(handlers.uninstall) end
+        end
     end
 end
 
@@ -146,9 +181,11 @@ function addon:RefreshSkin(key)
     ApplySkin(key)
 end
 
-local function ApplyAll()
+-- BOOT ONLY: never calls ApplySkin. Apply rewrites the player's window settings
+-- and is reserved for the toggle (addon:RefreshSkin) and the slash commands.
+local function RestoreAll()
     for key in pairs(skins) do
-        ApplySkin(key)
+        RestoreSkin(key)
     end
 end
 
@@ -173,12 +210,35 @@ function addon:RegisterSkin(key, targetAddonName, handlers, realAddonName)
     end
 
     if checkName and IsAddOnLoaded(checkName) then
+        -- Early synchronous registration when target already loaded (B),
+        -- reading the raw SavedVariable so we don't wait for OnInitialize.
+        local enabled = IsEnabledRaw(key)
+        if enabled then
+            InstallSkin(key)
+            local h = skins[key]
+            if h and h.restore then pcall(h.restore) end
+        end
         local DUI = _G.DragonUI
         if DUI and DUI.After then
             DUI:After(0, function()
-                if not IsSkinEnabled(key) then return end
-                InstallSkin(key)
-                if addon._loggedIn then ApplySkin(key) end
+                local enabled = IsEnabledRaw(key)
+                -- Report early-registration status for instrumentation (B).
+                if DUI and DUI.Debug then
+                    pcall(DUI.Debug, DUI, "AddOnSkins register " .. tostring(key) ..
+                        " loaded=" .. tostring(IsAddOnLoaded(checkName)) ..
+                        " rawEnabled=" .. tostring(enabled))
+                elseif _G.DragonUI_AddOnSkins and _G.DragonUI_AddOnSkins._debug then
+                    print("AddOnSkins register " .. tostring(key) ..
+                        " loaded=" .. tostring(IsAddOnLoaded(checkName)) ..
+                        " rawEnabled=" .. tostring(enabled))
+                end
+                if enabled then
+                    InstallSkin(key)
+                    if handlers.restore then pcall(handlers.restore) end
+                    if addon._loggedIn then RestoreSkin(key) end
+                else
+                    if addon._loggedIn then RestoreSkin(key) end
+                end
             end)
         end
     end
@@ -279,13 +339,17 @@ boot:RegisterEvent("PLAYER_LOGIN")
 boot:RegisterEvent("PLAYER_ENTERING_WORLD")
 boot:SetScript("OnEvent", function(_, event, name)
     if event == "ADDON_LOADED" then
-        -- The client fires this with the canonical folder name, which is not
-        -- necessarily how the skin declared it; `watching` is lowercased.
         local key = watching[lower(name)]
         if not key then return end
-        if not IsSkinEnabled(key) then return end
-        InstallSkin(key)
-        if addon._loggedIn then ApplySkin(key) end
+        local enabled = IsEnabledRaw(key)
+        if enabled then
+            InstallSkin(key)
+            local h = skins[key]
+            if h and h.restore then pcall(h.restore) end
+            if addon._loggedIn then RestoreSkin(key) end
+        else
+            if addon._loggedIn then RestoreSkin(key) end
+        end
         return
     end
 
@@ -298,12 +362,13 @@ boot:SetScript("OnEvent", function(_, event, name)
         addon._settingsAtLogin = (type(s) == "table") and tostring(s.details) or "noTable"
     end
 
-    ApplyAll()
+    -- BOOT: restore only. Apply is the toggle's job.
+    RestoreAll()
 
     local DUI = _G.DragonUI
     if DUI and DUI.After then
-        DUI:After(1, ApplyAll)
-        DUI:After(5, ApplyAll)
+        DUI:After(1, RestoreAll)
+        DUI:After(5, RestoreAll)
     end
 end)
 
