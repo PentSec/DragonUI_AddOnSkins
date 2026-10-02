@@ -34,3 +34,14 @@ L["Skada meter theme."] = "Skada을 위한 리테일 데미지 미터 테마."
 L["Enable Skada Skin"] = "Skada 스킨 활성화"
 L["Enable the DragonUI skin for Skada."] = "Skada에 DragonUI 스킨 활성화"
 L["Opacity of the Skada meter background texture."] = "Skada 미터 배경 텍스처의 투명도"
+
+-------------------------------
+-- CompactRaidFrame Skin Translation
+-------------------------------
+L["CompactRaidFrame is not installed."] = "CompactRaidFrame가 설치되지 않았습니다."
+L["CompactRaidFrame skin applied."] = "CompactRaidFrame 스킨이 적용되었습니다."
+L["Could not apply the skin - CompactRaidFrame is not ready yet."] = "CompactRaidFrame가 아직 준비되지 않아 스킨을 적용할 수 없습니다."
+L["CompactRaidFrame Skin"] = "CompactRaidFrame 스킨"
+L["Flat, solid health-bar fill for the compact frames."] = "컴팩트 프레임용 평평하고 단단한 생명력 바 채우기."
+L["Enable CompactRaidFrame Skin"] = "CompactRaidFrame 스킨 활성화"
+L["Enable the DragonUI skin for CompactRaidFrame."] = "CompactRaidFrame에 DragonUI 스킨 활성화"

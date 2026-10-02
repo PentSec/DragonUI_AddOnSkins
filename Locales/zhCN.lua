@@ -34,3 +34,14 @@ L["Skada meter theme."] = "适用于 Skada 的零售伤害计量表主题。"
 L["Enable Skada Skin"] = "启用 Skada 皮肤"
 L["Enable the DragonUI skin for Skada."] = "启用 DragonUI 皮肤用于 Skada。"
 L["Opacity of the Skada meter background texture."] = "Skada 计量表背景纹理的不透明度。"
+
+-------------------------------
+-- CompactRaidFrame Skin Translation
+-------------------------------
+L["CompactRaidFrame is not installed."] = "CompactRaidFrame 未安装。"
+L["CompactRaidFrame skin applied."] = "CompactRaidFrame 皮肤已应用。"
+L["Could not apply the skin - CompactRaidFrame is not ready yet."] = "无法应用皮肤 - CompactRaidFrame 尚未就绪。"
+L["CompactRaidFrame Skin"] = "CompactRaidFrame 皮肤"
+L["Flat, solid health-bar fill for the compact frames."] = "适用于紧凑帧的纯色实心生命值条填充。"
+L["Enable CompactRaidFrame Skin"] = "启用 CompactRaidFrame 皮肤"
+L["Enable the DragonUI skin for CompactRaidFrame."] = "启用 DragonUI 皮肤用于 CompactRaidFrame。"

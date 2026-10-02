@@ -34,3 +34,14 @@ L["Skada meter theme."] = "Retail-Schadensmesser-Theme für Skada."
 L["Enable Skada Skin"] = "Skada-Skin aktivieren"
 L["Enable the DragonUI skin for Skada."] = "DragonUI-Skin für Skada aktivieren"
 L["Opacity of the Skada meter background texture."] = "Deckkraft der Hintergrundtextur des Skada-Messgeräts"
+
+-------------------------------
+-- CompactRaidFrame Skin Translation
+-------------------------------
+L["CompactRaidFrame is not installed."] = "CompactRaidFrame ist nicht installiert."
+L["CompactRaidFrame skin applied."] = "Das CompactRaidFrame-Skin wurde angewendet."
+L["Could not apply the skin - CompactRaidFrame is not ready yet."] = "Das Skin konnte nicht angewendet werden - CompactRaidFrame ist noch nicht bereit."
+L["CompactRaidFrame Skin"] = "CompactRaidFrame-Skin"
+L["Flat, solid health-bar fill for the compact frames."] = "Einfache, massive Lebensleistenfüllung für die kompakten Rahmen."
+L["Enable CompactRaidFrame Skin"] = "CompactRaidFrame-Skin aktivieren"
+L["Enable the DragonUI skin for CompactRaidFrame."] = "DragonUI-Skin für CompactRaidFrame aktivieren"

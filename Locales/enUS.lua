@@ -34,3 +34,14 @@ L["Skada meter theme."] = true
 L["Enable Skada Skin"] = true
 L["Enable the DragonUI skin for Skada."] = true
 L["Opacity of the Skada meter background texture."] = true
+
+-------------------------------
+-- CompactRaidFrame Skin Translation
+-------------------------------
+L["CompactRaidFrame is not installed."] = true
+L["CompactRaidFrame skin applied."] = true
+L["Could not apply the skin - CompactRaidFrame is not ready yet."] = true
+L["CompactRaidFrame Skin"] = true
+L["Flat, solid health-bar fill for the compact frames."] = true
+L["Enable CompactRaidFrame Skin"] = true
+L["Enable the DragonUI skin for CompactRaidFrame."] = true

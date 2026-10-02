@@ -6,4 +6,7 @@
   <!-- Skada-WoTLK retail Skin -->
   <Script file="Skada\Skada.lua"/>
 
+  <!-- CompactRaidFrame retail Skin -->
+  <Script file="CompactRaidFrame\CompactRaidFrame.lua"/>
+
 </Ui>
