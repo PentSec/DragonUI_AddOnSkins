@@ -1,9 +1,9 @@
 <Ui xmlns="http://www.blizzard.com/wow/ui/">
 
   <!-- Details retail Skin -->
-	<Script file="Details\DetailsSkin.lua"/>
+	<Script file="Details\Details.lua"/>
 
   <!-- Skada-WoTLK retail Skin -->
-  <Script file="Skada\SkadaSkin.lua"/>
+  <Script file="Skada\Skada.lua"/>
 
 </Ui>
