@@ -45,3 +45,11 @@ L["CompactRaidFrame Skin"] = "CompactRaidFrame 스킨"
 L["Flat, solid health-bar fill for the compact frames."] = "컴팩트 프레임용 평평하고 단단한 생명력 바 채우기."
 L["Enable CompactRaidFrame Skin"] = "CompactRaidFrame 스킨 활성화"
 L["Enable the DragonUI skin for CompactRaidFrame."] = "CompactRaidFrame에 DragonUI 스킨 활성화"
+
+-------------------------------
+-- WIM Skin Translation
+-------------------------------
+L["WIM Skin"] = "WIM 스킨"
+L["Retail metal frame for WIM whisper windows."] = "WIM 대화 창용 리테일 금속 프레임."
+L["Enable WIM Skin"] = "WIM 스킨 활성화"
+L["Enable the DragonUI skin for WIM."] = "WIM에 DragonUI 스킨 활성화"

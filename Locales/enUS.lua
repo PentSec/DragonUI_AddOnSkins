@@ -45,3 +45,11 @@ L["CompactRaidFrame Skin"] = true
 L["Flat, solid health-bar fill for the compact frames."] = true
 L["Enable CompactRaidFrame Skin"] = true
 L["Enable the DragonUI skin for CompactRaidFrame."] = true
+
+-------------------------------
+-- WIM Skin Translation
+-------------------------------
+L["WIM Skin"] = true
+L["Retail metal frame for WIM whisper windows."] = true
+L["Enable WIM Skin"] = true
+L["Enable the DragonUI skin for WIM."] = true

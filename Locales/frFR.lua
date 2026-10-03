@@ -45,3 +45,11 @@ L["CompactRaidFrame Skin"] = "Skin de CompactRaidFrame"
 L["Flat, solid health-bar fill for the compact frames."] = "Remplissage plein et solide de la barre de vie pour les frames compacts."
 L["Enable CompactRaidFrame Skin"] = "Activer le skin de CompactRaidFrame"
 L["Enable the DragonUI skin for CompactRaidFrame."] = "Activer le skin de DragonUI pour CompactRaidFrame."
+
+-------------------------------
+-- WIM Skin Translation
+-------------------------------
+L["WIM Skin"] = "Skin de WIM"
+L["Retail metal frame for WIM whisper windows."] = "Cadre métallique style retail pour les fenêtres de chuchotement de WIM."
+L["Enable WIM Skin"] = "Activer le skin de WIM"
+L["Enable the DragonUI skin for WIM."] = "Activer le skin de DragonUI pour WIM."

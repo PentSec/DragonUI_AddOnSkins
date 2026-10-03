@@ -45,3 +45,11 @@ L["CompactRaidFrame Skin"] = "CompactRaidFrame 皮肤"
 L["Flat, solid health-bar fill for the compact frames."] = "适用于紧凑帧的纯色实心生命值条填充。"
 L["Enable CompactRaidFrame Skin"] = "启用 CompactRaidFrame 皮肤"
 L["Enable the DragonUI skin for CompactRaidFrame."] = "启用 DragonUI 皮肤用于 CompactRaidFrame。"
+
+-------------------------------
+-- WIM Skin Translation
+-------------------------------
+L["WIM Skin"] = "WIM 皮肤"
+L["Retail metal frame for WIM whisper windows."] = "适用于 WIM 悄悄话窗口的零售金属边框。"
+L["Enable WIM Skin"] = "启用 WIM 皮肤"
+L["Enable the DragonUI skin for WIM."] = "启用 DragonUI 皮肤用于 WIM。"

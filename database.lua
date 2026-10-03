@@ -19,6 +19,14 @@ addon.defaults = {
                     panelAlpha = 1,
                 },
             },
+            wim = {
+                enabled = false,
+                options = {},
+            },
+            compactraidframe = {
+                enabled = false,
+                options = {},
+            },
         }
     }
 }

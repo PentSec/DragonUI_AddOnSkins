@@ -9,4 +9,7 @@
   <!-- CompactRaidFrame retail Skin -->
   <Script file="CompactRaidFrame\CompactRaidFrame.lua"/>
 
+  <!-- WIM whisper-window retail Skin -->
+  <Script file="WIM\WIM.lua"/>
+
 </Ui>
