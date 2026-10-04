@@ -25,14 +25,16 @@ modify DragonUI or DragonUI_Options, and it never reads or writes their
 SavedVariables.
 
 ---
-
-## Addons Skinned
-
-- **Details! Damage Meter skin** — a retail-style
-
 ## Requirements
 
 - **[DragonUI](https://github.com/NeticSoul/DragonUI)**, installed and enabled (declared as a dependency).
+
+## Addons Skinned
+
+- **[Details! Damage Meter skin](https://warperia.com/addon-wotlk/details-damagemeter/)**
+- **[Skada](https://warperia.com/addon-wotlk/skada/)**
+- **[CompactRaidFrame](https://gitlab.com/tsoukie-3.3.5/compactraidframe)**
+- **[WIM](https://warperia.com/addon-wotlk/wowinstantmessenger/)**
 
 
 ## Installation
@@ -42,22 +44,8 @@ SavedVariables.
 2. Ensure `DragonUI` is installed and enabled.
 3. Enable `DragonUI_AddOnSkins` in the addon list and log in.
 
-## Usage
 
-Open **DragonUI Options → Addons Skin**:
-
-- **Details!** sub-tab — the enable toggle, the **Background Opacity** slider,
-  and the **Apply** / **Restore** buttons.
-
-
-Slash commands:
-
-| Command | Description |
-|---|---|
-| `/duidetails` | Apply the Details! skin immediately. |
-
-
-Applying or removing a skin takes effect immediately; no reload is required.
+Applying or removing a skin takes effect immediately;
 
 ### Support me ❤️ ⬎
 
