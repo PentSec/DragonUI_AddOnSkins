@@ -2,7 +2,7 @@
 ## Title: |cff1784d1DragonUI|r |cffffffffAddOnSkins|r
 ## Notes: |cffcaf7faReskin Addons for DragonUI|r
 ## Author: PentSec
-## Version: 1.1
+## Version: 1.1.1
 ## SavedVariables: DragonUI_AddOnSkinsDB, DragonUI_AddOnSkinsSettings
 ## Dependencies: DragonUI
 ## X-License: MIT for project-authored code; bundled dependencies retain their own licenses
