@@ -247,16 +247,17 @@ local function buildParts(obj)
 	r:SetPoint("TOPRIGHT",    tr, "BOTTOMRIGHT", 0, 0)
 	r:SetPoint("BOTTOMRIGHT", br, "TOPRIGHT",    0, 0)
 
-	-- No stock skin knows this frame's cutout, so the icon lands at WIM's default spot;
-	-- centre it on the top-left corner's portrait circle so it tracks the art.
+	-- Centre the class icon on the top-left corner's portrait circle.
 	local icon = obj.widgets and obj.widgets.class_icon
+	local iconLayer
 	if icon then
+		-- WIM creates it on BACKGROUND (WindowHandler.lua:778) and never re-layers it.
+		iconLayer = icon.GetDrawLayer and icon:GetDrawLayer() or nil
 		icon:ClearAllPoints()
 		icon:SetWidth(PORTRAIT_ICON)
 		icon:SetHeight(PORTRAIT_ICON)
 		icon:SetPoint("CENTER", tl, "TOPLEFT", PORTRAIT_ICON_X, PORTRAIT_ICON_Y)
-		-- Portrait stack: rock BACKGROUND, this icon BORDER, the cutout corner OVERLAY. WIM
-		-- creates the icon on BACKGROUND, which puts it under the rock.
+		-- BORDER: above the rock (BACKGROUND), below the cutout corner (OVERLAY).
 		icon:SetDrawLayer("BORDER")
 		icon:Show()
 	end
@@ -373,6 +374,7 @@ local function buildParts(obj)
 		t = t, b = b, l = l, r = r,
 		insetChat = insetChat,
 		insetMsg = insetMsg,
+		iconLayer = iconLayer,
 	}
 	return obj._duiWim
 end
@@ -398,6 +400,42 @@ local function native(obj, shown)
 			if shown then tex:Show() else tex:Hide() end
 		end
 	end
+end
+
+-- WIM repaints the close button's texture paths on every apply but never its
+-- texcoords (Skinner.lua:157-165), so ours would leak past teardown. Captured
+-- once here, restored on every teardown.
+local function saveCloseTex(close)
+	if close._duiSavedTex then return end
+	local function coord(region)
+		if not region then return false end -- absent region: restore resets to full rect
+		local l, r, t, b = region:GetTexCoord()
+		if type(l) ~= "number" then return { 0, 1, 0, 1 } end -- userdata matrix: WIM never sets one
+		return { l, r, t, b }
+	end
+	close._duiSavedTex = {
+		normal    = coord(close:GetNormalTexture()),
+		pushed    = coord(close:GetPushedTexture()),
+		highlight = coord(close:GetHighlightTexture()),
+	}
+end
+
+-- Puts the three texcoords back. Runs on every teardown and keeps the saved
+-- table: a re-apply mutates the regions again and must find the originals here.
+local function restoreCloseTex(close)
+	local saved = close._duiSavedTex
+	if not saved then return end
+	local function put(region, coord)
+		if not region then return end
+		if type(coord) == "table" then
+			region:SetTexCoord(coord[1], coord[2], coord[3], coord[4])
+		else
+			region:SetTexCoord(0, 1, 0, 1)
+		end
+	end
+	put(close:GetNormalTexture(), saved.normal)
+	put(close:GetPushedTexture(), saved.pushed)
+	put(close:GetHighlightTexture(), saved.highlight)
 end
 
 -- Paints our red art onto the button; size and position stay exactly as WIM set them.
@@ -444,6 +482,7 @@ local function styleClose(obj, atlas)
 	local mine = obj._duiWim
 	local backdrop = obj.widgets and obj.widgets.Backdrop
 
+	saveCloseTex(close)
 	applyCloseArt(close, atlas)
 
 	if mine then
@@ -494,6 +533,9 @@ local function releaseCloseUpdate(obj)
 		mine.closeLevel = nil
 	end
 	mine.lastCloseIndex = nil
+	-- Texcoords first: release() re-applies WIM's skin right after unskin and WIM
+	-- sets paths without touching texcoords, so ours must already be back.
+	restoreCloseTex(close)
 end
 
 -- WIM's minimum width for this skin, or 256 when the table cannot be read: its
@@ -565,6 +607,11 @@ function unskin(obj)
 	if not mine then return false end
 	releaseCloseUpdate(obj)
 	restoreBoxGeometry(obj, mine)
+	-- Restore the original draw layer (saved in buildParts, kept for re-applies).
+	if mine.iconLayer then
+		local icon = obj.widgets and obj.widgets.class_icon
+		if icon and icon.SetDrawLayer then icon:SetDrawLayer(mine.iconLayer) end
+	end
 	setShown(mine, false)
 	native(obj, true)
 	seen[obj] = nil
