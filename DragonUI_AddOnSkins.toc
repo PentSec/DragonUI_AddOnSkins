@@ -24,5 +24,6 @@ Core.lua
 utils\media.lua
 utils\frame.lua
 utils\atlas.lua
+utils\decorate.lua
 Skins\Load_Skins.xml
 Settings\Load_Settings.xml

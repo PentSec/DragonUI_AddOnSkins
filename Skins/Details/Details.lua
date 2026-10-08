@@ -15,14 +15,15 @@ addon.DetailsSkinAddon = DS
 
 local SKIN_NAME = "DragonUI"
 
--- Our atlas sheet and the named regions this skin cuts from it.
-local SHEET = addon._dir .. [[Details\uidamagemeters.blp]]
+-- Shared helpers (utils/decorate.lua): setRegion, panel/header, panelAlpha.
+local deco = addon.deco
+
+-- Sheet for LibSharedMedia and row fallbacks; single definition in the helper.
+local SHEET = deco.METER_SHEET
 
 local MEDIA_FILL = "DragonUI Meter Fill"
 local MEDIA_ROW  = "DragonUI Meter Row"
 local MEDIA_EDGE = "DragonUI Meter Row Edge"
-local ATLAS_HEADER = "ui-damagemeters-header-bar"
-local ATLAS_PANEL  = "damagemeters-background"
 local ATLAS_FILL   = "ui-hud-cooldownmanager-bar"
 local ATLAS_ROW    = "ui-damagemeters-bar-shadowbg"
 local ATLAS_EDGE   = "ui-damagemeters-bar-shadowedge"
@@ -32,18 +33,12 @@ local ATLAS_EDGE   = "ui-damagemeters-bar-shadowedge"
 -- truth); read them where used instead of repeating literals here.
 local HEADER_H      = 28     -- header band height, px
 local BAR_CENTRE_Y  = HEADER_H / 2
-local HEADER_OVERHANG = 4    -- header overhangs the window ends by this much
 local ROW_INSET_X    = 4
 local BALL_INNER_X   = 21
 local BALL_R_INNER_X = 32
 local ICON_SIZE      = 16
 local TITLE_SIZE     = 13
 local floor = math.floor
-
--- damagemeters-background is a soft-edged sprite: its outer ~3px fade from
--- opaque to transparent, which reads as left/right padding once the panel is
--- stretched over a window. Trim that feather off each side (source px).
-local PANEL_CROP_PX = 3
 
 -- Outset of our row strips relative to the row's statusbar.
 local BAR_INSET_LT, BAR_INSET_T, BAR_INSET_RB, BAR_INSET_B = -2, 2, 2, -2
@@ -169,27 +164,8 @@ local function forEachRow(inst, fn)
 	return true
 end
 
--- Points a texture at one of our named atlas regions (utils/atlas.lua). When
--- cropX is given, that many source pixels are trimmed off the left and right.
---
--- Returns false when the region is unknown OR when the sheet behind it did not
--- load. SetTexture() does not error on a bad path -- it just paints nothing --
--- so without the GetTexture() probe a typo in the atlas table would silently
--- draw invisible art instead of falling back to the full sheet.
-local function setRegion(tex, name, cropX)
-	if not tex then return false end
-	local region = addon.atlasinfo and addon.atlasinfo[name]
-	if not region then return false end
-	local left, right = region[4], region[5]
-	if cropX and cropX > 0 and region[2] and region[2] > 0 then
-		local uPerPx = (region[5] - region[4]) / region[2]
-		left, right = left + cropX * uPerPx, right - cropX * uPerPx
-	end
-	tex:SetTexture(region[1])
-	if tex.GetTexture and not tex:GetTexture() then return false end
-	tex:SetTexCoord(left, right, region[6], region[7])
-	return true
-end
+-- Points a texture at a named atlas region (utils/decorate.lua).
+local setRegion = deco.setRegion
 
 -- Registers the sheet as LibSharedMedia statusbars so Details can reference it
 -- by media name. Silently no-ops if LSM is unavailable.
@@ -452,18 +428,13 @@ function DS.IsDetailsLoaded()
 	return IsAddOnLoaded("Details") and details() ~= nil
 end
 
--- Background panel opacity, 0..1 (persisted per-skin via Core's option store).
+-- Background panel opacity, 0..1 (stored by the shared helper, key "details").
 function DS.GetPanelAlpha()
-	local v = addon:GetSkinOption("details", "panelAlpha")
-	if type(v) ~= "number" then v = media:GetDefaultPanelAlpha() end
-	if v < 0 then v = 0 elseif v > 1 then v = 1 end
-	return v
+	return deco.getPanelAlpha("details")
 end
 
 function DS.SetPanelAlpha(v)
-	v = tonumber(v) or media:GetDefaultPanelAlpha()
-	if v < 0 then v = 0 elseif v > 1 then v = 1 end
-	addon:SetSkinOption("details", "panelAlpha", v)
+	deco.setPanelAlpha("details", v)
 end
 
 -- Re-tints just the background panel on the open windows (no full re-apply).
@@ -475,38 +446,14 @@ function DS.RefreshPanelAlpha()
 	end)
 end
 
--- Draws our background panel, header band and row art on one window.
+-- Panel + header band (shared) plus Details' row art and native-header hiding.
 function DS.DecorateWindow(inst)
 	local base = inst and inst.baseframe
 	if not (base and base.CreateTexture) then return end
 
-	local panel = base._duiMeterPanel
-	if not panel then
-		panel = base:CreateTexture(nil, "BACKGROUND")
-		base._duiMeterPanel = panel
-	end
-	if not setRegion(panel, ATLAS_PANEL, PANEL_CROP_PX) then
-		panel:SetTexture(SHEET)
-	end
-	panel:ClearAllPoints()
-	panel:SetPoint("TOPLEFT", base, "TOPLEFT")
-	panel:SetPoint("BOTTOMRIGHT", base, "BOTTOMRIGHT")
-	panel:SetVertexColor(1, 1, 1, DS.GetPanelAlpha())
-	panel:Show()
-
-	local hdr = base._duiMeterHeader
-	if not hdr then
-		hdr = base:CreateTexture(nil, "OVERLAY")
-		base._duiMeterHeader = hdr
-	end
-	if not setRegion(hdr, ATLAS_HEADER) then
-		hdr:SetTexture(SHEET)
-	end
-	hdr:ClearAllPoints()
-	hdr:SetPoint("BOTTOMLEFT",  base, "TOPLEFT",  -HEADER_OVERHANG, 0)
-	hdr:SetPoint("BOTTOMRIGHT", base, "TOPRIGHT", HEADER_OVERHANG, 0)
-	hdr:SetHeight(HEADER_H)
-	hdr:Show()
+	deco.meterPanel(base, DS.GetPanelAlpha())
+	-- OVERLAY so the band covers Details' title row.
+	deco.meterHeader(base, base, "TOPLEFT", "TOPRIGHT", "OVERLAY")
 	detailsHeaderShown(inst, false)
 	stampRows(inst)
 	stampPluginRows(inst)
@@ -848,19 +795,12 @@ addon:RegisterSkin("details", "Details", {
 	-- `available` is the Options tab's verdict on whether Details! is installed
 	-- at all; without it the slider would happily tune a skin nothing can wear.
 	options = function(section, C, available)
-		C:AddSlider(section, {
-			label = L["Background Opacity"] or "Background Opacity",
-			desc = L["Opacity of the Details! meter background texture."] or
-			       "Opacity of the Details! meter background texture.",
-			min = 0, max = 1, step = 0.05, isPercent = true,
-			disabled = not available,
-			getFunc = function()
-				return DS.GetPanelAlpha()
-			end,
-			setFunc = function(val)
-				DS.SetPanelAlpha(val)
-				if DS.RefreshPanelAlpha then DS.RefreshPanelAlpha() end
-			end,
+		deco.addPanelAlphaSlider(section, C, available, {
+			skinKey   = "details",
+			label     = L["Background Opacity"] or "Background Opacity",
+			desc      = L["Opacity of the Details! meter background texture."] or
+			           "Opacity of the Details! meter background texture.",
+			onChanged = DS.RefreshPanelAlpha,
 		})
 	end,
 })

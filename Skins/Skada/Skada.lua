@@ -15,8 +15,11 @@ local media = addon.media   -- centralized palette (utils/media.lua)
 local DS = {}
 addon.SkadaSkinAddon = DS
 
--- rows, panel and header out of.
-local SHEET = addon._dir .. [[Details\uidamagemeters.blp]]
+-- Shared helpers (utils/decorate.lua): setRegion, panel/header, panelAlpha.
+local deco = addon.deco
+
+-- Sheet for LibSharedMedia and row fallbacks; single definition in the helper.
+local SHEET = deco.METER_SHEET
 
 -- Skada fetches p.bartexture through LibSharedMedia ("statusbar"), and
 -- MediaFetch has no path fallback, so the sheet needs a media NAME to be found
@@ -27,14 +30,9 @@ local MEDIA_FILL = "DragonUI Skada Bar Fill"
 local ATLAS_FILL   = "ui-hud-cooldownmanager-bar"
 local ATLAS_ROW    = "ui-damagemeters-bar-shadowbg"
 local ATLAS_EDGE   = "ui-damagemeters-bar-shadowedge"
-local ATLAS_HEADER = "ui-damagemeters-header-bar"
-local ATLAS_PANEL  = "damagemeters-background"
 
--- outset, panel feather trim) and leaves the icon layout entirely to Skada:
--- its reserved left strip already puts the class icon flush against the window
+-- Band/title height; the band geometry lives in the helper.
 local HEADER_H        = 28
-local HEADER_OVERHANG = 4
-local PANEL_CROP_PX   = 3
 
 local BAR_INSET_LT, BAR_INSET_T, BAR_INSET_RB, BAR_INSET_B = -2, 2, 2, -2
 
@@ -51,23 +49,8 @@ local ipairs, pairs, next, type, pcall, hooksecurefunc = ipairs, pairs, next, ty
 local min, max = math.min, math.max
 
 
--- Points a texture at one of our named atlas regions. Same contract as the
--- behind it failed to load, because SetTexture() on a bad path paints nothing
--- instead of erroring.
-local function setRegion(tex, name, cropX)
-    if not tex then return false end
-    local region = addon.atlasinfo and addon.atlasinfo[name]
-    if not region then return false end
-    local left, right = region[4], region[5]
-    if cropX and cropX > 0 and region[2] and region[2] > 0 then
-        local uPerPx = (region[5] - region[4]) / region[2]
-        left, right = left + cropX * uPerPx, right - cropX * uPerPx
-    end
-    tex:SetTexture(region[1])
-    if tex.GetTexture and not tex:GetTexture() then return false end
-    tex:SetTexCoord(left, right, region[6], region[7])
-    return true
-end
+-- Points a texture at a named atlas region (utils/decorate.lua).
+local setRegion = deco.setRegion
 
 -- Returns the Skada addon table once it is ready, or nil.
 local function skada()
@@ -253,29 +236,15 @@ end
 -- PER-WINDOW DECORATION
 -- ============================================================================
 
--- Our background panel and header band on one window.
+-- Panel + header band on one window. The band hangs off the title button with
+-- the button raised a frame level (parenting it there would bury the title
+-- text); that bump is this skin's, the helper only draws the band.
 local function decorateWindow(win)
     local g = win.bargroup
     if not (g and g.CreateTexture) then return false end
 
-    local panel = g._duiMeterPanel
-    if not panel then
-        panel = g:CreateTexture(nil, "BACKGROUND")
-        g._duiMeterPanel = panel
-    end
-    if not setRegion(panel, ATLAS_PANEL, PANEL_CROP_PX) then
-        panel:SetTexture(SHEET)
-    end
-    panel:ClearAllPoints()
-    panel:SetPoint("TOPLEFT", g, "TOPLEFT")
-    panel:SetPoint("BOTTOMRIGHT", g, "BOTTOMRIGHT")
-    panel:SetVertexColor(1, 1, 1, DS.GetPanelAlpha())
-    panel:Show()
+    deco.meterPanel(g, DS.GetPanelAlpha())
 
-    -- The header band lives on the bargroup, not on the title button: a child
-    -- frame and its ARTWORK children are drawn before a later sibling, so
-    -- parenting it to the title button would bury the title text under it.
-    -- Raising the title button one frame level puts the text back on top.
     local button = g.button
     if not button then return true end
 
@@ -284,19 +253,7 @@ local function decorateWindow(win)
     end
     button:SetFrameLevel(g:GetFrameLevel() + 1)
 
-    local hdr = g._duiMeterHeader
-    if not hdr then
-        hdr = g:CreateTexture(nil, "ARTWORK")
-        g._duiMeterHeader = hdr
-    end
-    if not setRegion(hdr, ATLAS_HEADER) then
-        hdr:SetTexture(SHEET)
-    end
-    hdr:ClearAllPoints()
-    hdr:SetPoint("BOTTOMLEFT", button, "BOTTOMLEFT", -HEADER_OVERHANG, 0)
-    hdr:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", HEADER_OVERHANG, 0)
-    hdr:SetHeight(HEADER_H)
-    hdr:Show()
+    deco.meterHeader(g, button, "BOTTOMLEFT", "BOTTOMRIGHT", "ARTWORK")
     return true
 end
 
@@ -516,18 +473,13 @@ function DS.IsSkadaLoaded()
     return IsAddOnLoaded("Skada") and skada() ~= nil
 end
 
--- Background panel opacity, 0..1 (persisted per-skin via Core's option store).
+-- Background panel opacity, 0..1 (stored by the shared helper, key "skada").
 function DS.GetPanelAlpha()
-    local v = addon:GetSkinOption("skada", "panelAlpha")
-    if type(v) ~= "number" then v = media:GetDefaultPanelAlpha() end
-    if v < 0 then v = 0 elseif v > 1 then v = 1 end
-    return v
+    return deco.getPanelAlpha("skada")
 end
 
 function DS.SetPanelAlpha(v)
-    v = tonumber(v) or media:GetDefaultPanelAlpha()
-    if v < 0 then v = 0 elseif v > 1 then v = 1 end
-    addon:SetSkinOption("skada", "panelAlpha", v)
+    deco.setPanelAlpha("skada", v)
 end
 
 -- Re-tints just the background panel on the open windows (no full re-apply).
@@ -800,19 +752,12 @@ addon:RegisterSkin("skada", "Skada", {
     toggleDesc  = function() return L["Enable the DragonUI skin for Skada."] end,
 
     options = function(section, C, available)
-        C:AddSlider(section, {
-            label = L["Background Opacity"] or "Background Opacity",
-            desc = L["Opacity of the Skada meter background texture."] or
-                   "Opacity of the Skada meter background texture.",
-            min = 0, max = 1, step = 0.05, isPercent = true,
-            disabled = not available,
-            getFunc = function()
-                return DS.GetPanelAlpha()
-            end,
-            setFunc = function(val)
-                DS.SetPanelAlpha(val)
-                if DS.RefreshPanelAlpha then DS.RefreshPanelAlpha() end
-            end,
+        deco.addPanelAlphaSlider(section, C, available, {
+            skinKey   = "skada",
+            label     = L["Background Opacity"] or "Background Opacity",
+            desc      = L["Opacity of the Skada meter background texture."] or
+                       "Opacity of the Skada meter background texture.",
+            onChanged = DS.RefreshPanelAlpha,
         })
     end,
 })
