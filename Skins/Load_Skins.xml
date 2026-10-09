@@ -12,4 +12,7 @@
   <!-- WIM whisper-window retail Skin -->
   <Script file="WIM\WIM.lua"/>
 
+  <!-- Deadly Boss Mods retail Skin -->
+  <Script file="DBM\DBM.lua"/>
+
 </Ui>

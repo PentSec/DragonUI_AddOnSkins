@@ -53,3 +53,17 @@ L["WIM Skin"] = "WIM 皮膚"
 L["Retail metal frame for WIM whisper windows."] = "適用於 WIM 悄悄話視窗的零售金屬邊框。"
 L["Enable WIM Skin"] = "啟用 WIM 皮膚"
 L["Enable the DragonUI skin for WIM."] = "啟用 DragonUI 皮膚用於 WIM。"
+
+-------------------------------
+-- DBM Skin Translation
+-------------------------------
+L["DBM Skin"] = "DBM 皮膚"
+L["Flat DragonUI bars for DBM timers, boss health and the range check."] = "適用於 DBM 計時器、首領生命值與距離檢測的 DragonUI 扁平條。"
+L["Enable DBM Skin"] = "啟用 DBM 皮膚"
+L["Enable the DragonUI skin for DBM."] = "啟用 DragonUI 皮膚用於 DBM。"
+
+-- Bar border option (shared by Details, Skada and DBM)
+L["Bar Border"] = "條的邊框"
+L["Borderless"] = "無邊框"
+L["Borderer"] = "有邊框"
+L["Draw the DragonUI rim border around the bars."] = "在條周圍繪製 DragonUI rim 邊框。"

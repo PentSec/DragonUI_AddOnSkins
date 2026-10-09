@@ -53,3 +53,17 @@ L["WIM Skin"] = true
 L["Retail metal frame for WIM whisper windows."] = true
 L["Enable WIM Skin"] = true
 L["Enable the DragonUI skin for WIM."] = true
+
+-------------------------------
+-- DBM Skin Translation
+-------------------------------
+L["DBM Skin"] = true
+L["Flat DragonUI bars for DBM timers, boss health and the range check."] = true
+L["Enable DBM Skin"] = true
+L["Enable the DragonUI skin for DBM."] = true
+
+-- Bar border option (shared by Details, Skada and DBM)
+L["Bar Border"] = true
+L["Borderless"] = true
+L["Borderer"] = true
+L["Draw the DragonUI rim border around the bars."] = true

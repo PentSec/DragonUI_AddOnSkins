@@ -1,11 +1,6 @@
 -- DragonUI_AddOnSkins — Skada-WoTLK skin.
---
--- Reskins the Skada damage meter to DragonUI's retail-style look: a gold title
--- header, a near-invisible background panel and class-coloured rows that wear
--- Skada has no skin registry (no D.skins). Everything it draws is read at paint
--- time out of `win.db` + LibSharedMedia through
--- Skada.displays.bar:ApplySettings(win), so this skin works by writing the keys
--- Skada reads and then overlaying the art it cannot be told to change.
+-- Reskins the damage meter: gold header, near-invisible panel, class rows.
+-- Skada has no skin registry: this skin writes win.db and overlays its own art.
 
 local ADDON_NAME, addon = ...
 local DUI = _G.DragonUI
@@ -21,9 +16,7 @@ local deco = addon.deco
 -- Sheet for LibSharedMedia and row fallbacks; single definition in the helper.
 local SHEET = deco.METER_SHEET
 
--- Skada fetches p.bartexture through LibSharedMedia ("statusbar"), and
--- MediaFetch has no path fallback, so the sheet needs a media NAME to be found
--- by. It is a new name for an existing file, not a copy of the file.
+-- Statusbar name for the shared fill sheet; LSM resolves it by name.
 local MEDIA_FILL = "DragonUI Skada Bar Fill"
 
 -- Named regions of the sheet (utils/atlas.lua).
@@ -40,8 +33,7 @@ local ROW_FONT, ROW_FONT_SIZE = "Arial Narrow", 14
 local TITLE_FONT, TITLE_FONT_SIZE = "Friz Quadrata TT", 13
 local BAR_SPACING = 4
 
--- SpecializedLibBars-1.0: lib.LEFT_TO_RIGHT / RIGHT_TO_LEFT. Read as a literal
--- so the skin never has to name Skada's private library to learn them.
+-- Lib orientation literals (SpecializedLibBars-1.0).
 local LEFT_TO_RIGHT = 1
 local RIGHT_TO_LEFT = 2
 
@@ -59,9 +51,7 @@ local function skada()
     return nil
 end
 
--- Calls fn(win) for every live window using the bar display. Returns how many
--- were visited. Other displays (inline, broker, legacy) have their own modules
--- and are out of scope.
+-- Runs fn(win) on every live bar-display window; returns how many were visited.
 local function forEachBarWindow(fn)
     local S = skada()
     if not S then return 0 end
@@ -89,14 +79,7 @@ end
 -- PER-BAR DECORATION
 -- ============================================================================
 
--- Draws (or reuses) one of our overlaid strips and anchors it to the bar.
---
--- Skada reserves a strip on the group's left for the icons: SortBars offsets the
--- first bar by `thickness` and chains every later bar off it
--- (SpecializedLibBars-1.0.lua:1663), while updateSize shortens each bar by the
--- same amount (line 1980). Both read a `showIcon`, but the group's for the
--- position and the bar's for the width - so the strip has to be spanned, not
--- just the bar, or the icons would sit on bare panel with no row behind them.
+-- Draws (or reuses) one of our overlaid strips, anchored to the bar.
 local function rowStrip(bar, key, layer, region)
     local tex = bar[key]
     if not tex then
@@ -114,16 +97,7 @@ local function rowStrip(bar, key, layer, region)
     return true
 end
 
--- Teaches bar.fg to reveal our fill region instead of the whole sheet.
---
--- Skada sets bar.fg's texture once to a single path and then drives the value
--- purely through texcoords: SetTexCoord(0, amt, 0, 1) left-to-right, or
--- SetTexCoord(1 - amt, 1, 0, 1) right-to-left (SpecializedLibBars-1.0.lua:2078).
--- Without this the bar would show the entire atlas as it filled.
---
--- Both forms span `amt` in u, so the width of the request is the value
--- fraction either way and one wrapper serves both orientations. Instanced once
--- per bar and never re-wrapped.
+-- Teaches bar.fg to reveal only our fill region of the sheet.
 local function cropFillToRegion(bar)
     if bar._duiFillHooked then return end
     local region = addon.atlasinfo and addon.atlasinfo[ATLAS_FILL]
@@ -135,10 +109,7 @@ local function cropFillToRegion(bar)
     local span = right - left
 
     bar._duiFillHooked = true
-    -- `ownerGroup` is a field of the BAR (SpecializedLibBars-1.0.lua:1033), and
-    -- SetTextureValue is the only thing that reads it -- the fill texture never
-    -- sees it. So orientation has to be resolved through the captured bar rather
-    -- than through `self`, which here is bar.fg.
+    -- Orientation is read from the captured bar, never from self (bar.fg).
     bar.fg.SetTexCoord = function(_, u1, u2)
         local amt = u2 - u1
         if amt < 0 then
@@ -162,14 +133,7 @@ local function stampBar(bar)
 
     cropFillToRegion(bar)
 
-    -- Skada's own row art off. bg is the same sprite as the fill (it just gets
-    -- tinted by SetBarBackgroundColor), hg is the hover highlight and spark is
-    -- Skada's sparkline sprite.
-    --
-    -- Their visibility is captured ONCE, on the first stamp only. Capturing on
-    -- every stamp would record what this skin had already hidden and hand back
-    -- the wrong thing - and hg in particular is shown and hidden on hover, so
-    -- "assume hidden" is wrong the moment the pointer crosses the bar.
+    -- Hides Skada's own row art (bg/hg/spark), capturing its visibility once.
     if not bar._duiArtSaved then
         bar._duiArtSaved = true
         local art = { "bg", "hg", "spark" }
@@ -186,6 +150,7 @@ local function stampBar(bar)
 
     rowStrip(bar, "_duiBarBG", "BACKGROUND", ATLAS_ROW)
     rowStrip(bar, "_duiBarEdge", "OVERLAY", ATLAS_EDGE)
+    deco.meterBarBorder(bar, deco.getBarBorder("skada") == "borderer")
     return true
 end
 
@@ -200,6 +165,7 @@ local function resetBar(bar)
 
     if bar._duiBarBG then bar._duiBarBG:Hide() end
     if bar._duiBarEdge then bar._duiBarEdge:Hide() end
+    deco.meterBarBorder(bar, false)
 
     -- Restore Skada's own art to the visibility captured on the first stamp.
     for _, key in ipairs({ "Bg", "Hg", "Spark" }) do
@@ -236,9 +202,7 @@ end
 -- PER-WINDOW DECORATION
 -- ============================================================================
 
--- Panel + header band on one window. The band hangs off the title button with
--- the button raised a frame level (parenting it there would bury the title
--- text); that bump is this skin's, the helper only draws the band.
+-- Adds the shared panel and header band to one window.
 local function decorateWindow(win)
     local g = win.bargroup
     if not (g and g.CreateTexture) then return false end
@@ -275,8 +239,7 @@ end
 -- SETTINGS
 -- ============================================================================
 
--- Every key this skin writes. Both the pre-apply snapshot and the uninstall
--- restore walk this one list, so the two can never drift apart.
+-- Every key this skin writes; snapshot and restore walk the same list.
 local OWNED_KEYS = {
     "bartexture", "barfont", "barfontsize", "barfontflags",
     "barspacing", "classcolorbars", "classicons", "spexicons",
@@ -291,22 +254,7 @@ local function copyValue(value)
     return out
 end
 
--- What the player had before the skin first touched a window. Uninstall hands
--- this back rather than Skada's stock defaults, which would silently discard a
--- profile the player had actually configured.
---
--- It has to be PERSISTED, not a local table. Our writes land in Skada's own
--- AceDB (SkadaDB), so they outlive the session, while a snapshot held only in
--- memory dies with it. The consequence of getting this wrong is not a cosmetic
--- glitch: after one /reload the snapshot is gone while our values are still in
--- SkadaDB, so Uninstall has nothing to restore and the player is left wearing
--- "Arial Narrow", barspacing 4 and our title font FOREVER, with no toggle that
--- can undo it.
---
--- Keyed the same two things Skada keys its own persisted window table by: the
--- AceDB profile name plus db.name. That is what lets the snapshot find its
--- window again on the next login without holding a reference to a table that no
--- longer exists.
+-- Persisted snapshot of a window's player values, keyed by profile and db.name.
 local function snapshotStore()
     local s = addon.settings
     if type(s) ~= "table" then return nil end
@@ -314,14 +262,7 @@ local function snapshotStore()
     return s.dbSnapshots
 end
 
--- store[profile][windowName] -> snapshot. Two levels rather than one joined key,
--- so no window name can ever collide with a separator.
---
--- profile is Skada's own AceDB profile name, which is also how Skada scopes its
--- persisted windows: window #1 in profile "Raid" is a different table from
--- window #1 in profile "PvP", and the player's settings for each are different.
--- db.name is unique among live windows (CreateWindow runs CheckDuplicate), so
--- the pair identifies one window across sessions.
+-- Returns the [profile, db.name] pair that identifies a window.
 local function snapshotKey(p)
     local S = skada()
     local data = S and S.data
@@ -329,8 +270,7 @@ local function snapshotKey(p)
     return tostring(profile), tostring(p and p.name or "?")
 end
 
--- Returns the [profile] bucket, or nil when there is nothing stored for it and
--- `create` is false.
+-- Returns the [profile] bucket, creating it when asked.
 local function snapshotBucket(profile, create)
     local store = snapshotStore()
     if not store then return nil end
@@ -342,17 +282,7 @@ local function snapshotBucket(profile, create)
     return bucket
 end
 
--- Only ever captures ONCE per window. On the first apply of a session the db
--- still holds the player's values; from then on it holds ours, so re-capturing
--- would snapshot the skin over itself and Uninstall would "restore" our own
--- settings.
---
--- Deliberately covers ONLY what writeSettings actually writes. Restoring a key
--- this skin never touched would hand back a stale value and silently discard
--- whatever the player changed during the skinned session - and now that the
--- snapshot is persisted, "during the skinned session" can stretch across many
--- logins. p.buttons is the concrete case: Skada owns button visibility, we only
--- rely on enabletitle to make Skada draw the header at all.
+-- Captures a window's player values ONCE, before our writes land in the db.
 local function snapshotDb(p)
     local profile, name = snapshotKey(p)
     local bucket = snapshotBucket(profile, true)
@@ -370,27 +300,18 @@ local function restoreDb(p)
     local snap = bucket and bucket[name]
     if not snap then return false end
     for _, key in ipairs(OWNED_KEYS) do
-        -- Written out rather than the `cond and v or nil` shorthand: a stored
-        -- `false` is a real setting (disablehighlight), and the shorthand would
-        -- drop it to nil.
         local saved = snap[key]
         if saved == nil then
-            -- A key that was absent before (a table this skin invented, say) is
-            -- removed outright rather than left holding a value nobody chose.
             p[key] = nil
         else
             p[key] = copyValue(saved)
         end
     end
-    -- Consumed: a later re-apply must snapshot afresh, from whatever the player
-    -- has by then, rather than resurrect this capture.
     bucket[name] = nil
     return true
 end
 
--- Drops captures whose window no longer exists, so a deleted or renamed Skada
--- window cannot leave its snapshot behind forever in the SavedVariables.
--- `liveKeys` is a set of [profile]/windowName pairs of windows still open.
+-- Drops captures whose window no longer exists; liveKeys is the open set.
 local function pruneSnapshots(liveKeys)
     local store = snapshotStore()
     if not store then return end
@@ -402,10 +323,7 @@ local function pruneSnapshots(liveKeys)
     end
 end
 
--- Writes the keys Skada reads. Called BEFORE mod:ApplySettings, because that
--- function only reads win.db - it never writes it. Colours come from
--- utils/media.lua and are read here, at apply time, so a palette change is not
--- baked in at file load.
+-- Writes the keys Skada reads, before ApplySettings; colours come from media.
 local function writeSettings(win)
     local p = win.db
     if type(p) ~= "table" then return false end
@@ -416,9 +334,7 @@ local function writeSettings(win)
     -- Rows: our fill, revealed through the atlas crop installed by stampBar.
     p.bartexture = MEDIA_FILL
 
-    -- Skada's own stretched ground and Armory header art are switched fully
-    -- transparent rather than replaced: both are a single stretched texture, so
-    -- there is no region to point them at. decorateWindow draws ours over them.
+    -- Skada's stretched ground/header art is made transparent; ours draws over it.
     p.background = p.background or {}
     p.background.color = p.background.color or { r = 0, g = 0, b = 0, a = 1 }
     p.background.color.a = 0
@@ -440,24 +356,16 @@ local function writeSettings(win)
     p.barspacing = BAR_SPACING
     p.classcolorbars = true
 
-    -- The icon pipeline stays ON: bar_seticon keeps computing class/spec/role
-    -- icons, and Skada's own reserved strip keeps them flush against the window
-    -- edge with the bar starting after them. This skin never touches showIcon:
-    -- the group uses it to offset the bars and the bar uses it to size the fill,
-    -- and clearing only one of the two pushes the bars past the right edge.
+    -- The icon pipeline stays on; showIcon is never written.
     p.classicons = true
     p.spexicons = true
     p.roleicons = true
 
-    -- Skada's sparkline sprite and hover highlight have no place in the
+    -- Skada's sparkline and hover highlight are turned off.
     p.spark = false
     p.disablehighlight = true
 
-    -- The header stays on, which is what makes Skada call g:ShowAnchor() and
-    -- the g:ShowButton(...) block at all (Bar.lua:1104). Which anchor buttons
-    -- appear is left to Skada's own defaults (menu/reset/report/mode/segment
-    -- on, phase/split/stop off) and to whatever the player configures, so this
-    -- skin never writes p.buttons.
+    -- Keeps the title on, which draws Skada's anchor buttons; p.buttons is never written.
     p.enabletitle = true
 
     return true
@@ -491,19 +399,26 @@ function DS.RefreshPanelAlpha()
     end)
 end
 
--- Writes our settings into a window and then runs Skada's own ApplySettings,
--- so it reads them. Also stamps the rows afterwards.
+-- Re-applies the bar border choice to the open windows (no full re-apply).
+function DS.RefreshBarBorder()
+    local border = deco.getBarBorder("skada") == "borderer"
+    forEachBarWindow(function(win)
+        local group = win.bargroup
+        if group and group.GetBars then
+            for _, bar in pairs(group:GetBars() or {}) do
+                deco.meterBarBorder(bar, border)
+            end
+        end
+    end)
+end
+
+-- Writes our keys, runs Skada's ApplySettings, then stamps and decorates.
 function DS.ApplyToWindow(win)
     if type(win) ~= "table" or not win.db or not win.bargroup then return false end
     if win.db.display ~= "bar" then return false end
 
     writeSettings(win)
-    -- Rows are stamped BEFORE Skada applies, not after: SetTextureValue() reads
-    -- bar.showIcon when it sizes the fill, so a bar stamped only afterwards
-    -- paints its first frame short by the icon width and only corrects itself on
-    -- the next update. The icon re-anchor Skada does inside ApplySettings
-    -- (SetThickness -> UpdateOrientationLayout) is undone by the after-hook on
-    -- ApplySettings, which re-stamps every bar once Skada is done.
+    -- Stamp before apply: SetTextureValue reads bar.showIcon when sizing the fill.
     stampBars(win)
     if type(win.display) == "table" and type(win.display.ApplySettings) == "function" then
         pcall(win.display.ApplySettings, win.display, win)
@@ -520,10 +435,7 @@ end
 local hooked = {}
 local originals = {}
 
--- Wraps a method so our work runs with the right ordering around it.
--- `before` runs first (settings Skada is about to read), `after` runs once the
--- original returned (art Skada is not able to draw). Never double-wraps, and
--- the original is captured once so teardown can put it back by identity.
+-- Wraps a method with before/after callbacks; captures the original once.
 local function wrapMethod(owner, name, before, after)
     if not (owner and owner[name] and type(owner[name]) == "function") then return false end
     if hooked[name] then return false end
@@ -553,8 +465,7 @@ local function installHooks()
     local S = skada()
     if not S then return false end
 
-    -- The display's ApplySettings is where Skada turns win.db into frames, so
-    -- our keys go in before it and our art goes on after it.
+    -- ApplySettings turns win.db into frames: keys before, art after.
     wrapMethod(S.displays.bar, "ApplySettings",
         function(self, win)
             if type(win) == "table" and win.db and win.db.display == "bar" then
@@ -568,8 +479,7 @@ local function installHooks()
             end
         end)
 
-    -- Update is what creates bars for newly seen modes, so a bar Skada has
-    -- just made is stamped as soon as it exists.
+    -- Update creates bars for newly seen modes; stamp them as soon as they exist.
     wrapMethod(S.displays.bar, "Update", nil,
         function(self, win)
             if type(win) == "table" and win.db and win.db.display == "bar" then
@@ -612,19 +522,7 @@ function DS.Restore()
     registerMedia()
     installHooks()
     DS.Install(false)
-    -- Decorate existing windows that still wear our skin. Writes nothing.
-    --
-    -- Nothing to write, in fact: our values went into Skada's AceDB, so they are
-    -- already sitting in win.db when this runs. Re-asserting them would be a
-    -- no-op at best. What matters is NOT snapshotting here either - by boot time
-    -- win.db holds our settings, not the player's, so a capture taken now would
-    -- snapshot the skin over itself and Uninstall would later "restore" our own
-    -- values while believing it was giving the player's back.
-    --
-    -- This is also why Skada has no equivalent of the Details reload bug: there,
-    -- ChangeSkin rewrote the live instance on every login and destroyed the
-    -- player's config. Here the config IS the persisted table, so there is
-    -- nothing separate to clobber and nothing separate to re-adopt from.
+    -- Decorates existing windows that still wear our skin; writes nothing.
     forEachBarWindow(function(win)
         if win and win.db and win.db.display == "bar" then
             -- Only stamp bars and decorate; do NOT writeSettings or snapshotDb.
@@ -635,9 +533,7 @@ function DS.Restore()
     return true
 end
 
--- Registers the media entry and the hooks. Deliberately does NOT force a
--- re-apply: Skada may be part way through its own ApplySettings while it
--- restores windows, and re-entering it from here is how skins corrupt db.
+-- Registers the media entry and the hooks; never forces a re-apply.
 function DS.Install(force)
     local S = skada()
     if not S then return false end
@@ -665,9 +561,7 @@ function DS.Apply()
     return applied > 0
 end
 
--- Hands Skada back its own look: our settings are dropped, our art removed, our
--- fill crop and icon hooks unhooked, our panel and header hidden, and the
--- window repainted from the player's own profile.
+-- Drops our settings and art, then repaints the window from the player's profile.
 function DS.Uninstall()
     addon:SetSkinEnabled("skada", false)
 
@@ -679,9 +573,7 @@ function DS.Uninstall()
 
     removeHooks()
 
-    -- Collected across every Skada window, not just the bar ones: a window whose
-    -- display is not "bar" never got our art, but it can still hold a snapshot
-    -- from when it did, and pruning must not mistake it for a deleted window.
+    -- Collect live keys across every window, bar or not, so pruning keeps them.
     local liveKeys = {}
     for _, win in ipairs(S.windows or {}) do
         local p = win and win.db
@@ -695,9 +587,7 @@ function DS.Uninstall()
         local p = win.db
         resetBars(win)
         clearDecoration(win)
-        -- Hand back the values this window had before the skin wrote anything,
-        -- not Skada's stock defaults: a configured profile is the player's, and
-        -- resetting it to defaults would throw that away.
+        -- Restores the window's pre-skin values, not Skada's defaults.
         if type(p) == "table" then
             restoreDb(p)
         end
@@ -733,13 +623,8 @@ SlashCmdList["DUISKADA"] = function()
 end
 
 
--- Core.lua owns the ADDON_LOADED / PLAYER_LOGIN / PLAYER_ENTERING_WORLD wiring
--- for every skin, so this file needs no boot frame of its own.
---
--- The display strings are FUNCTIONS on purpose. This registration runs at file
--- load, before OnInitialize() re-points the addon.L proxy at the player's
--- active locale; a plain L["..."] evaluated here would be captured in the
--- load-time language and the Options tab would keep showing English.
+-- Core.lua wires the boot events for every skin; this file just registers it.
+-- Display strings are FUNCTIONS so they resolve in the player's locale.
 addon:RegisterSkin("skada", "Skada", {
     install   = DS.Install,
     apply     = DS.Apply,
@@ -758,6 +643,16 @@ addon:RegisterSkin("skada", "Skada", {
             desc      = L["Opacity of the Skada meter background texture."] or
                        "Opacity of the Skada meter background texture.",
             onChanged = DS.RefreshPanelAlpha,
+        })
+
+        deco.addBarBorderDropdown(section, C, available, {
+            skinKey         = "skada",
+            label           = L["Bar Border"] or "Bar Border",
+            desc            = L["Draw the DragonUI rim border around the bars."] or
+                              "Draw the DragonUI rim border around the bars.",
+            borderlessLabel = L["Borderless"] or "Borderless",
+            bordererLabel   = L["Borderer"] or "Borderer",
+            onChanged       = DS.RefreshBarBorder,
         })
     end,
 })

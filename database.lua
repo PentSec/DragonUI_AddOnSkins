@@ -11,12 +11,14 @@ addon.defaults = {
                 enabled = false,
                 options = {
                     panelAlpha = 1,
+                    barBorder = "borderless",
                 },
             },
             skada = {
                 enabled = false,
                 options = {
                     panelAlpha = 1,
+                    barBorder = "borderless",
                 },
             },
             wim = {
@@ -26,6 +28,12 @@ addon.defaults = {
             compactraidframe = {
                 enabled = false,
                 options = {},
+            },
+            dbm = {
+                enabled = false,
+                options = {
+                    barBorder = "borderless",
+                },
             },
         }
     }

@@ -53,3 +53,17 @@ L["WIM Skin"] = "Skin do WIM"
 L["Retail metal frame for WIM whisper windows."] = "Moldura metálica estilo retail para as janelas de sussurro do WIM."
 L["Enable WIM Skin"] = "Habilitar o skin do WIM"
 L["Enable the DragonUI skin for WIM."] = "Habilitar o skin do DragonUI para o WIM."
+
+-------------------------------
+-- DBM Skin Translation
+-------------------------------
+L["DBM Skin"] = "Skin do DBM"
+L["Flat DragonUI bars for DBM timers, boss health and the range check."] = "Barras planas do DragonUI para os temporizadores do DBM, a vida dos chefes e a verificação de distância."
+L["Enable DBM Skin"] = "Habilitar o skin do DBM"
+L["Enable the DragonUI skin for DBM."] = "Habilitar o skin do DragonUI para o DBM."
+
+-- Bar border option (shared by Details, Skada and DBM)
+L["Bar Border"] = "Borda das barras"
+L["Borderless"] = "Sem borda"
+L["Borderer"] = "Com borda"
+L["Draw the DragonUI rim border around the bars."] = "Desenha a borda rim do DragonUI ao redor das barras."

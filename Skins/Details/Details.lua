@@ -1,9 +1,6 @@
 -- DragonUI_AddOnSkins — Details! skin.
---
--- Reskins the Details! damage meter to DragonUI's retail-style look: a gold
--- title header, a near-invisible background panel and class-coloured rows.
--- The skin is registered with Details under the name "DragonUI"; our own
-
+-- Reskins the damage meter: gold header, near-invisible panel, class rows.
+-- Registered with Details as the "DragonUI" skin.
 
 local ADDON_NAME, addon = ...
 local DUI = _G.DragonUI
@@ -29,8 +26,6 @@ local ATLAS_ROW    = "ui-damagemeters-bar-shadowbg"
 local ATLAS_EDGE   = "ui-damagemeters-bar-shadowedge"
 
 -- Geometry shared between the skin table and the manual anchors.
--- Colours, alphas and textures come from utils/media.lua (the single source of
--- truth); read them where used instead of repeating literals here.
 local HEADER_H      = 28     -- header band height, px
 local BAR_CENTRE_Y  = HEADER_H / 2
 local ROW_INSET_X    = 4
@@ -54,9 +49,7 @@ local function details()
 	return nil
 end
 
--- Calls fn(instance, index) for every live Details window. No-op if Details is not
--- ready. The index is the one Details' own profile uses to address a window, so
--- callers can look up what was saved for it.
+-- Runs fn(instance, index) on every live Details window.
 local function forEachInstance(D, fn)
 	if not D then return end
 	local count = (type(D.GetNumInstancesAmount) == "function" and D:GetNumInstancesAmount()) or 0
@@ -66,10 +59,7 @@ local function forEachInstance(D, fn)
 	end
 end
 
--- Which windows wear our skin, kept in OUR saved variables (not on Details'
--- instance tables). If Details restores a window before our skin is registered
--- it silently drops it to its default skin; this is how Restore knows to put
--- back only those windows. Details' instance id is `meu_id` (GetId()).
+-- Tracks which windows wear our skin, keyed by Details' `meu_id`.
 local function instKey(inst)
 	return inst and (inst.meu_id or inst.id) or nil
 end
@@ -94,9 +84,7 @@ local function isMarked(inst)
 	return (m and key and m[key]) and true or false
 end
 
--- Recursive table copy. The values we read back out of Details' profile must not
--- share sub-tables with the live instance: Details mutates row_info.space and
--- friends in place, and a shared table would write through into the profile.
+-- Recursive copy so saved values never share sub-tables with the live instance.
 local function deepCopy(value)
 	if type(value) ~= "table" then return value end
 	local out = {}
@@ -104,12 +92,7 @@ local function deepCopy(value)
 	return out
 end
 
--- What Details still remembers for a window, straight out of its active profile.
---
--- Details loads a profile by COPYING it into the instance and then running
--- ChangeSkin, and ChangeSkin only ever mutates the instance -- the profile entry
--- keeps the state the player last saved. That makes it the one trustworthy copy
--- of "our look + whatever the player tweaked in Details' options".
+-- The window's config as Details' active profile still has it.
 local function savedInstanceConfig(index)
 	local D = details()
 	if not D then return nil end
@@ -120,25 +103,14 @@ local function savedInstanceConfig(index)
 	return entry
 end
 
--- Instance keys ApplyProfile handles itself and must not be copied back: 'skin'
--- would flip the window off ours, and the rest are Details' own bookkeeping.
+-- Keys ApplyProfile handles itself are never copied back.
 local function isPlayerOwnedKey(key)
 	if type(key) ~= "string" then return false end
 	if key == "skin" or key == "posicao" or key == "StatusBarSaved" then return false end
 	return key:sub(1, 2) ~= "__"
 end
 
--- Puts the saved config back on the instance and re-applies it, mirroring how
--- Details loads a skin preset (janela_options.lua, loadStyle).
---
--- Why this is needed: at boot Details restores its profile while our skin is not
--- registered yet, so it silently drops the window to its default skin. Putting
--- our skin back runs ChangeSkin again, and a real skin change rewrites the whole
--- instance with the skin's cprops -- which is what put bar height back to 16 and
--- dropped every other option the player had changed. ChangeSkin again with the
--- skin ALREADY set counts as "just updating": Details rebuilds the bars from the
--- values on the instance without overwriting them, so the player's settings
--- survive while the DragonUI look stays on.
+-- Puts the saved config back on the instance and re-applies it.
 local function adoptSavedConfig(inst, index)
 	if inst.skin ~= SKIN_NAME or type(inst.ChangeSkin) ~= "function" then return false end
 	local saved = savedInstanceConfig(index)
@@ -233,10 +205,12 @@ end
 
 -- Applies the class bar fill and our two overlay strips to every row.
 local function stampRows(inst)
+	local border = deco.getBarBorder("details") == "borderer"
 	return forEachRow(inst, function(row)
 		if row.statusbar then
 			rowStrip(row, "_duiBarBG", "BACKGROUND", ATLAS_ROW)
 			rowStrip(row, "_duiBarEdge", "OVERLAY", ATLAS_EDGE)
+			deco.meterBarBorder(row.statusbar, border)
 			if row.background then row.background:Hide() end
 			if row.overlayTexture then row.overlayTexture:Hide() end
 			if row.lineBorder then row.lineBorder:Hide() end
@@ -252,12 +226,12 @@ local function resetRows(inst)
 		if row.overlayTexture then row.overlayTexture:Show() end
 		if row._duiBarBG then row._duiBarBG:Hide() end
 		if row._duiBarEdge then row._duiBarEdge:Hide() end
+		if row.statusbar then deco.meterBarBorder(row.statusbar, false) end
 		if row.lineBorder then row.lineBorder:Show() end
 	end)
 end
 
--- Declared before resetPluginRows_impl, which calls it: a `local function` is
--- only visible to code written AFTER it.
+-- Declared before resetPluginRows_impl, which calls it.
 local function getTinyThreatPlugin()
 	local D = details()
 	if not D then return nil end
@@ -292,9 +266,7 @@ local function resetPluginRows_impl(force)
 		end
 	end
 
-	-- TinyThreat assigns row.texture from the window's row_info only inside its
-	-- own RefreshRow. Our rows still hold the atlas file, so without this they
-	-- keep drawing the whole DragonUI sheet after the skin is gone.
+	-- RefreshRows hands the rows back to TinyThreat's own texture.
 	if type(p.RefreshRows) == "function" then
 		pcall(p.RefreshRows, p)
 	end
@@ -322,7 +294,7 @@ local function hookTinyThreatRow(row, inst)
 	if row._duiHooksApplied or not row.statusbar then return end
 	row._duiHooksApplied = true
 
-	-- Red de seguridad: re-estampar al mostrarse (StatusBar puede resetear TexCoord).
+	-- Re-stamp on show: the StatusBar can reset TexCoord.
 	row.statusbar:HookScript("OnShow", function(self)
 		local r = self.MyObject
 		if r and r._duiSkinActive and r._texture then
@@ -330,7 +302,7 @@ local function hookTinyThreatRow(row, inst)
 		end
 	end)
 
-	-- Paso E: 3.3.5 reinicia TexCoord al cambiar valor; reaplicamos el recorte.
+	-- Re-apply the crop on value change (3.3.5 resets fill TexCoord).
 	row.statusbar:HookScript("OnValueChanged", function(self)
 		local r = self.MyObject
 		if r and r._duiSkinActive and r._texture then
@@ -395,7 +367,7 @@ local function hookTinyThreatPlugin()
 		end)
 	end
 
-	-- Primer pase sobre filas existentes de la ventana del plugin.
+	-- First pass over the plugin window's existing rows.
 	if type(p.GetPluginInstance) == "function" then
 		local pInst = p:GetPluginInstance()
 		if pInst and pInst.skin == SKIN_NAME then
@@ -446,6 +418,16 @@ function DS.RefreshPanelAlpha()
 	end)
 end
 
+-- Re-applies the bar border choice to the open rows (no full re-apply).
+function DS.RefreshBarBorder()
+	local border = deco.getBarBorder("details") == "borderer"
+	forEachInstance(details(), function(inst)
+		forEachRow(inst, function(row)
+			if row.statusbar then deco.meterBarBorder(row.statusbar, border) end
+		end)
+	end)
+end
+
 -- Panel + header band (shared) plus Details' row art and native-header hiding.
 function DS.DecorateWindow(inst)
 	local base = inst and inst.baseframe
@@ -463,9 +445,7 @@ end
 -- LIFECYCLE
 -- ============================================================================
 
--- Wraps Details' ChangeSkin. Keeps our decoration in sync while a window wears
--- our skin, and turns the addon toggle OFF when the player picks another skin.
--- It never turns the toggle ON (that is what made a disabled skin come back).
+-- Wraps ChangeSkin: keeps decoration in sync, turns the toggle off on other skins.
 local function hookChangeSkin(D)
 	if DS._ourChangeSkin or type(D.ChangeSkin) ~= "function" then return end
 	local orig = D.ChangeSkin
@@ -483,11 +463,9 @@ local function hookChangeSkin(D)
 			markWindow(self, true)
 		else
 			clearDecoration(self)
-			-- Forget the window only when the player picked another skin for it.
-			-- Details' own fallback (skin not registered yet) passes no skin name.
+			-- Forget the window only on an explicit skin change.
 			if wasOurs and explicit then markWindow(self, false) end
-			-- Only turn toggle off when user explicitly removed our skin from
-			-- a window that WAS ours, and no other window still wears it.
+			-- Turn the toggle off only when no other window wears our skin.
 			if wasOurs and explicit and installed then
 				local anyOurs = false
 				forEachInstance(D, function(inst)
@@ -672,11 +650,7 @@ function DS.Install(force)
 	return (ok and installed) and true or false
 end
 
--- Installs the skin, marks it chosen and pushes it to every open window. This is
--- the button's path and the only path that (re)writes our cprops: the boot runs
--- DS.Restore instead, which restores the player's settings instead of resetting
--- them. So clicking the toggle always gives the DragonUI look back, and booting
--- never takes their choices away.
+-- Installs, marks the skin chosen and pushes it to every open window.
 function DS.Apply()
 	local D = details()
 	if not D then return false end
@@ -690,9 +664,7 @@ function DS.Apply()
 	local applied = 0
 	forEachInstance(D, function(inst)
 		if inst.ChangeSkin then
-			-- Details only writes a skin's cprops when the skin actually changes,
-			-- so a window already wearing DragonUI would ignore the apply. Clearing
-			-- the name first is Details' own trick for a real re-apply (loadStyle).
+			-- Clear the name first to force a real re-apply (Details' own trick).
 			inst.skin = ""
 			pcall(inst.ChangeSkin, inst, SKIN_NAME)
 			DS.DecorateWindow(inst)
@@ -703,9 +675,7 @@ function DS.Apply()
 	return applied > 0
 end
 
--- Removes the skin. Every window is handed back to a REAL Details skin before we
--- drop ours from D.skins: a window left pointing at SKIN_NAME while the table
--- entry is nil makes Details' options window crash on GetSkin().
+-- Hands every window back to a real skin, then drops ours from D.skins.
 function DS.Uninstall()
 	local D = details()
 	if D then unhookChangeSkin(D) end
@@ -770,16 +740,8 @@ SlashCmdList["DUIDETAILS"] = function(msg)
 end
 
 
--- Core.lua owns the ADDON_LOADED / PLAYER_LOGIN / PLAYER_ENTERING_WORLD wiring
--- for every skin, so this file needs no boot frame of its own. The display
--- metadata below is what the data-driven Options tab reads via
--- addon:GetRegisteredSkins(); `options` renders this skin's extra controls.
---
--- The five display strings are FUNCTIONS on purpose. This registration runs at
--- file load, before OnInitialize() re-points the addon.L proxy at the player's
--- active locale; a plain L["..."] evaluated here would be captured in the
--- load-time language and the Options tab would keep showing English to a
--- Spanish player. Functions are resolved when the tab asks for the metadata.
+-- Core.lua wires the boot events for every skin; metadata here feeds the Options tab.
+-- Display strings are FUNCTIONS so they resolve in the player's locale.
 addon:RegisterSkin("details", "Details", {
 	install   = DS.Install,
 	apply     = DS.Apply,
@@ -792,8 +754,7 @@ addon:RegisterSkin("details", "Details", {
 	toggleLabel = function() return L["Enable Details! Skin"] end,
 	toggleDesc  = function() return L["Enable the DragonUI skin for Details!."] end,
 
-	-- `available` is the Options tab's verdict on whether Details! is installed
-	-- at all; without it the slider would happily tune a skin nothing can wear.
+	-- `available` gates these controls on Details being installed.
 	options = function(section, C, available)
 		deco.addPanelAlphaSlider(section, C, available, {
 			skinKey   = "details",
@@ -801,6 +762,16 @@ addon:RegisterSkin("details", "Details", {
 			desc      = L["Opacity of the Details! meter background texture."] or
 			           "Opacity of the Details! meter background texture.",
 			onChanged = DS.RefreshPanelAlpha,
+		})
+
+		deco.addBarBorderDropdown(section, C, available, {
+			skinKey         = "details",
+			label           = L["Bar Border"] or "Bar Border",
+			desc            = L["Draw the DragonUI rim border around the bars."] or
+			                  "Draw the DragonUI rim border around the bars.",
+			borderlessLabel = L["Borderless"] or "Borderless",
+			bordererLabel   = L["Borderer"] or "Borderer",
+			onChanged       = DS.RefreshBarBorder,
 		})
 	end,
 })
