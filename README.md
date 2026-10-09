@@ -6,11 +6,14 @@
 ![WoW Version](https://img.shields.io/badge/WoW-3.3.5a-orange)
 [![Version](https://img.shields.io/badge/Version-v1.+-green)](https://github.com/PentSec/DragonUI_AddOnSkins/releases/tag/v3.0.1)
 [![License](https://img.shields.io/badge/License-MIT-yellow)](LICENSE)
+[![Ko-fi](https://img.shields.io/badge/Support-Ko--fi-ff5e5b?logo=ko-fi)](https://ko-fi.com/pentsec)
 ![Downloads](https://img.shields.io/github/downloads/PentSec/DragonUI_AddOnSkins/total?label=Downloads&color=%23a400ff)
 
 
 Found a bug? [Open an issue](https://github.com/PentSec/DragonUI_AddOnSkins/issues).
+### Join Discord: ⬎
 
+[![](https://dcbadge.limes.pink/api/server/https://discord.gg/uVsEaAUGcx)](https://discord.gg/uVsEaAUGcx)
 </div>
 
 <div align="center">
@@ -25,9 +28,10 @@ modify DragonUI or DragonUI_Options, and it never reads or writes their
 SavedVariables.
 
 ---
-## Requirements
+## Downlaods & Requirements
 
-- **[DragonUI](https://github.com/NeticSoul/DragonUI)**, installed and enabled (declared as a dependency).
+- **[DragonUI_AddonSkins Stable](https://github.com/PentSec/DragonUI_AddonSkins/releases/latest/download/DragonUI_AddOnSkins.zip)**, this a Stable version. if you wanna test a beta [Download  this](https://github.com/PentSec/DragonUI_AddOnSkins/archive/refs/heads/main.zip) one, _It might contain a ton of bugs or be broken._
+- **[DragonUI](https://github.com/NeticSoul/DragonUI)**, installed and enabled.
 
 ## Addons Skinned
 
@@ -35,6 +39,7 @@ SavedVariables.
 - **[Skada](https://warperia.com/addon-wotlk/skada/)**
 - **[CompactRaidFrame](https://gitlab.com/tsoukie-3.3.5/compactraidframe)**
 - **[WIM](https://warperia.com/addon-wotlk/wowinstantmessenger/)**
+- **[DBM](https://warperia.com/addon-wotlk/dbm-warmane/)**
 
 
 ## Installation
