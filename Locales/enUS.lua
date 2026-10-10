@@ -66,4 +66,5 @@ L["Enable the DragonUI skin for DBM."] = true
 L["Bar Border"] = true
 L["Borderless"] = true
 L["Borderer"] = true
+L["Thin"] = true
 L["Draw the DragonUI rim border around the bars."] = true

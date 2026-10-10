@@ -273,20 +273,21 @@ end
 -- BAR BORDER OPTION
 -- ============================================================================
 
--- Stored bar border choice for skinKey: "borderless" (default) or "borderer".
+-- Stored bar border choice for skinKey: "borderless" (default), "borderer", or
+-- "thin" (a thin bar with the name and value on a row above it).
 function deco.getBarBorder(skinKey)
     local v = addon:GetSkinOption(skinKey, "barBorder")
-    if v ~= "borderer" then v = "borderless" end
+    if v ~= "borderer" and v ~= "thin" then v = "borderless" end
     return v
 end
 
 function deco.setBarBorder(skinKey, v)
-    if v ~= "borderer" then v = "borderless" end
+    if v ~= "borderer" and v ~= "thin" then v = "borderless" end
     addon:SetSkinOption(skinKey, "barBorder", v)
 end
 
--- Shared "Bar Border" dropdown: borderless (default) or borderer.
--- opts: { skinKey, label, desc, borderlessLabel, bordererLabel, onChanged };
+-- Shared "Bar Border" dropdown: borderless (default), borderer or thin.
+-- opts: { skinKey, label, desc, borderlessLabel, bordererLabel, thinLabel, onChanged };
 -- `available` drives the disabled flag.
 function deco.addBarBorderDropdown(section, C, available, opts)
     if not (section and C and C.AddDropdown and opts and opts.skinKey) then return end
@@ -296,6 +297,7 @@ function deco.addBarBorderDropdown(section, C, available, opts)
         values = {
             ["borderless"] = opts.borderlessLabel or "Borderless",
             ["borderer"]   = opts.bordererLabel or "Borderer",
+            ["thin"]       = opts.thinLabel or "Thin",
         },
         disabled = not available,
         getFunc = function()
@@ -306,4 +308,40 @@ function deco.addBarBorderDropdown(section, C, available, opts)
             if opts.onChanged then opts.onChanged(v) end
         end,
     })
+end
+
+
+-- ============================================================================
+-- ANCHOR SNAPSHOT (used by the Thin bar layout)
+-- ============================================================================
+
+-- Snapshot of a region's anchors, for the Full <-> Thin layout swap.
+-- Each point is stored field by field: a raw GetPoint tuple drops trailing
+-- offsets when relativeTo is nil. Returns nil when there is no anchor to take
+-- (a bare SetAllPoints reports none), so restore never blanks the region.
+function deco.savePoints(region)
+    if not (region and region.GetNumPoints) then return nil end
+    local n = region:GetNumPoints()
+    if not n or n == 0 then return nil end
+    local pts = {}
+    for i = 1, n do
+        local point, rel, relPoint, x, y = region:GetPoint(i)
+        pts[i] = { point, rel, relPoint, x or 0, y or 0 }
+    end
+    return pts
+end
+
+-- Re-applies anchors captured by savePoints.
+function deco.restorePoints(region, pts)
+    if not (region and pts) then return false end
+    region:ClearAllPoints()
+    for i = 1, #pts do
+        local p = pts[i]
+        if p[2] then
+            region:SetPoint(p[1], p[2], p[3], p[4], p[5])
+        else
+            region:SetPoint(p[1], p[4], p[5])
+        end
+    end
+    return true
 end

@@ -66,4 +66,5 @@ L["Enable the DragonUI skin for DBM."] = "Habilitar o skin do DragonUI para o DB
 L["Bar Border"] = "Borda das barras"
 L["Borderless"] = "Sem borda"
 L["Borderer"] = "Com borda"
+L["Thin"] = "Fina"
 L["Draw the DragonUI rim border around the bars."] = "Desenha a borda rim do DragonUI ao redor das barras."

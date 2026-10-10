@@ -79,8 +79,18 @@ end
 -- PER-BAR DECORATION
 -- ============================================================================
 
+-- Stretches one overlaid strip around target (the bar, or the thin fill).
+local function anchorSkadaStrip(bar, tex, target)
+    local group = bar.ownerGroup
+    local reserve = (group and group.showIcon and group.thickness) or 0
+    target = target or bar
+    tex:ClearAllPoints()
+    tex:SetPoint("TOPLEFT", target, "TOPLEFT", BAR_INSET_LT - reserve, BAR_INSET_T)
+    tex:SetPoint("BOTTOMRIGHT", target, "BOTTOMRIGHT", BAR_INSET_RB, BAR_INSET_B)
+end
+
 -- Draws (or reuses) one of our overlaid strips, anchored to the bar.
-local function rowStrip(bar, key, layer, region)
+local function rowStrip(bar, key, layer, region, target)
     local tex = bar[key]
     if not tex then
         tex = bar:CreateTexture(nil, layer)
@@ -89,12 +99,77 @@ local function rowStrip(bar, key, layer, region)
     if not setRegion(tex, region) then return false end
     tex:SetVertexColor(1, 1, 1, media:GetRowStripAlpha())
     tex:Show()
-    local group = bar.ownerGroup
-    local reserve = (group and group.showIcon and group.thickness) or 0
-    tex:ClearAllPoints()
-    tex:SetPoint("TOPLEFT", bar, "TOPLEFT", BAR_INSET_LT - reserve, BAR_INSET_T)
-    tex:SetPoint("BOTTOMRIGHT", bar, "BOTTOMRIGHT", BAR_INSET_RB, BAR_INSET_B)
+    anchorSkadaStrip(bar, tex, target)
     return true
+end
+
+-- Height of the label row in the Thin layout; falls back to the font size.
+local function labelRowHeight(label)
+    local h = label and label:GetHeight()
+    if h and h > 0 then return h end
+    local size
+    if label and label.GetFont then size = select(2, label:GetFont()) end
+    return size or 11
+end
+
+-- Full height: hands the fill and the labels back to Skada's own layout.
+local function fullSkadaBar(bar)
+    if type(bar.UpdateOrientationLayout) == "function" and bar.ownerGroup then
+        bar:UpdateOrientationLayout(bar.ownerGroup.orientation)
+    end
+    if bar._duiBarBG then anchorSkadaStrip(bar, bar._duiBarBG, bar) end
+    if bar._duiBarEdge then anchorSkadaStrip(bar, bar._duiBarEdge, bar) end
+end
+
+-- Thin: name/value on a top row, the fill keeps the strip below them.
+local function thinSkadaBar(bar)
+    if not (bar.fg and bar.label) then return end
+    local group = bar.ownerGroup
+    local rtl = group and group.orientation == RIGHT_TO_LEFT
+    local label, timer = bar.label, bar.timerLabel
+    label:ClearAllPoints()
+    if timer then timer:ClearAllPoints() end
+    if rtl then
+        if timer then
+            timer:SetPoint("TOPLEFT", bar, "TOPLEFT", 3, 0)
+            timer:SetJustifyH("LEFT")
+        end
+        label:SetPoint("TOPRIGHT", bar, "TOPRIGHT", -3, 0)
+        label:SetJustifyH("RIGHT")
+        if timer then label:SetPoint("LEFT", timer, "RIGHT") end
+    else
+        label:SetPoint("TOPLEFT", bar, "TOPLEFT", 3, 0)
+        label:SetJustifyH("LEFT")
+        if timer then
+            timer:SetPoint("TOPRIGHT", bar, "TOPRIGHT", -3, 0)
+            timer:SetJustifyH("RIGHT")
+            label:SetPoint("RIGHT", timer, "LEFT")
+        end
+    end
+    local top = -(labelRowHeight(label) + 1)
+    bar.fg:ClearAllPoints()
+    if rtl then
+        bar.fg:SetPoint("TOPRIGHT", bar, "TOPRIGHT", 0, top)
+        bar.fg:SetPoint("BOTTOMRIGHT", bar, "BOTTOMRIGHT", 0, 0)
+    else
+        bar.fg:SetPoint("TOPLEFT", bar, "TOPLEFT", 0, top)
+        bar.fg:SetPoint("BOTTOMLEFT", bar, "BOTTOMLEFT", 0, 0)
+    end
+    if bar._duiBarBG then anchorSkadaStrip(bar, bar._duiBarBG, bar.fg) end
+    if bar._duiBarEdge then anchorSkadaStrip(bar, bar._duiBarEdge, bar.fg) end
+end
+
+-- Applies the stored bar border/style to one bar. Full is a no-op unless we had
+-- overridden Skada's layout, so Skada keeps owning its own geometry.
+local function applyBarStyle(bar)
+    if not bar then return end
+    if deco.getBarBorder("skada") == "thin" then
+        thinSkadaBar(bar)
+        bar._duiThinApplied = true
+    elseif bar._duiThinApplied then
+        fullSkadaBar(bar)
+        bar._duiThinApplied = nil
+    end
 end
 
 -- Teaches bar.fg to reveal only our fill region of the sheet.
@@ -151,6 +226,7 @@ local function stampBar(bar)
     rowStrip(bar, "_duiBarBG", "BACKGROUND", ATLAS_ROW)
     rowStrip(bar, "_duiBarEdge", "OVERLAY", ATLAS_EDGE)
     deco.meterBarBorder(bar, deco.getBarBorder("skada") == "borderer")
+    applyBarStyle(bar)
     return true
 end
 
@@ -166,6 +242,12 @@ local function resetBar(bar)
     if bar._duiBarBG then bar._duiBarBG:Hide() end
     if bar._duiBarEdge then bar._duiBarEdge:Hide() end
     deco.meterBarBorder(bar, false)
+
+    -- Hand the row layout back to Skada before hiding our strips.
+    if bar._duiThinApplied then
+        fullSkadaBar(bar)
+        bar._duiThinApplied = nil
+    end
 
     -- Restore Skada's own art to the visibility captured on the first stamp.
     for _, key in ipairs({ "Bg", "Hg", "Spark" }) do
@@ -399,7 +481,7 @@ function DS.RefreshPanelAlpha()
     end)
 end
 
--- Re-applies the bar border choice to the open windows (no full re-apply).
+-- Re-applies the bar border/style choice to the open windows (no full re-apply).
 function DS.RefreshBarBorder()
     local border = deco.getBarBorder("skada") == "borderer"
     forEachBarWindow(function(win)
@@ -407,6 +489,7 @@ function DS.RefreshBarBorder()
         if group and group.GetBars then
             for _, bar in pairs(group:GetBars() or {}) do
                 deco.meterBarBorder(bar, border)
+                applyBarStyle(bar)
             end
         end
     end)
@@ -652,6 +735,7 @@ addon:RegisterSkin("skada", "Skada", {
                               "Draw the DragonUI rim border around the bars.",
             borderlessLabel = L["Borderless"] or "Borderless",
             bordererLabel   = L["Borderer"] or "Borderer",
+            thinLabel       = L["Thin"] or "Thin",
             onChanged       = DS.RefreshBarBorder,
         })
     end,

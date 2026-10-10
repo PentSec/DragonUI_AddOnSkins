@@ -38,6 +38,9 @@ local floor = math.floor
 -- Outset of our row strips relative to the row's statusbar.
 local BAR_INSET_LT, BAR_INSET_T, BAR_INSET_RB, BAR_INSET_B = -2, 2, 2, -2
 
+-- Minimum height, px, kept for the class-coloured fill in the Thin layout.
+local THIN_STRIP_MIN = 4
+
 -- Details' own header pieces, hidden while our skin is on (saved and restored).
 local HEADER_PIECES = { "ball", "emenda", "ball_r", "top_bg" }
 
@@ -203,6 +206,82 @@ local function detailsHeaderShown(inst, shown)
 	end
 end
 
+-- Row's name/value FontStrings (field names vary between Details builds).
+local function detailsName(row) return row.texto_esquerdo or row.textleft end
+local function detailsValue(row) return row.texto_direita or row.textright end
+
+-- Height of the name row in the Thin layout; falls back to the font size.
+local function detailsRowHeight(name)
+	local h = name and name.GetHeight and name:GetHeight()
+	if h and h > 0 then return h end
+	local size
+	if name and name.GetFont then size = select(2, name:GetFont()) end
+	return size or 12
+end
+
+-- Full height: hands the fill and the texts back to Details' own anchors.
+local function fullDetailsRow(row)
+	local saved = row and row._duiThin
+	if not saved then return end
+	deco.restorePoints(row.statusbar, saved.bar)
+	local name, value = detailsName(row), detailsValue(row)
+	if name and saved.name then deco.restorePoints(name, saved.name) end
+	if value and saved.value then deco.restorePoints(value, saved.value) end
+	row._duiThin = nil
+end
+
+-- Thin: name/value on a top row, the fill keeps the strip below them.
+local function thinDetailsRow(row)
+	local bar = row.statusbar
+	local name, value = detailsName(row), detailsValue(row)
+	if not (bar and name) then return end
+	if not row._duiThin then
+		local barPts = deco.savePoints(bar)
+		if not barPts then return end
+		row._duiThin = {
+			bar = barPts,
+			name = deco.savePoints(name),
+			value = value and deco.savePoints(value),
+		}
+	end
+	local icon = row.icone_classe
+	if icon then
+		name:ClearAllPoints()
+		name:SetPoint("TOPLEFT", icon, "TOPRIGHT", 3, 0)
+	else
+		name:ClearAllPoints()
+		name:SetPoint("TOPLEFT", row, "TOPLEFT", 3, 0)
+	end
+	if value then
+		value:ClearAllPoints()
+		value:SetPoint("TOPRIGHT", row, "TOPRIGHT", -4, 0)
+	end
+	-- Keep a visible class-coloured strip even when Detail's rows are short.
+	local textH = detailsRowHeight(name) + 1
+	local rowHeight = row:GetHeight() or 0
+	if rowHeight <= 0 then rowHeight = textH + THIN_STRIP_MIN end
+	local rowH = rowHeight - THIN_STRIP_MIN
+	if textH < rowH then rowH = textH end
+	if rowH < 0 then rowH = 0 end
+	bar:ClearAllPoints()
+	if icon then
+		bar:SetPoint("TOPLEFT", icon, "TOPRIGHT", 0, -rowH)
+	else
+		bar:SetPoint("TOPLEFT", row, "TOPLEFT", 0, -rowH)
+	end
+	bar:SetPoint("BOTTOMRIGHT", row, "BOTTOMRIGHT", 0, 0)
+end
+
+-- Applies the stored row style. Full only undoes a previous Thin.
+local function applyRowStyle(row)
+	if not row then return end
+	if deco.getBarBorder("details") == "thin" then
+		thinDetailsRow(row)
+	else
+		fullDetailsRow(row)
+	end
+end
+
 -- Applies the class bar fill and our two overlay strips to every row.
 local function stampRows(inst)
 	local border = deco.getBarBorder("details") == "borderer"
@@ -215,6 +294,7 @@ local function stampRows(inst)
 			if row.overlayTexture then row.overlayTexture:Hide() end
 			if row.lineBorder then row.lineBorder:Hide() end
 			if row.textura then setRegion(row.textura, ATLAS_FILL) end
+			applyRowStyle(row)
 		end
 	end)
 end
@@ -228,6 +308,7 @@ local function resetRows(inst)
 		if row._duiBarEdge then row._duiBarEdge:Hide() end
 		if row.statusbar then deco.meterBarBorder(row.statusbar, false) end
 		if row.lineBorder then row.lineBorder:Show() end
+		fullDetailsRow(row)
 	end)
 end
 
@@ -418,12 +499,15 @@ function DS.RefreshPanelAlpha()
 	end)
 end
 
--- Re-applies the bar border choice to the open rows (no full re-apply).
+-- Re-applies the bar border/style choice to the open rows (no full re-apply).
 function DS.RefreshBarBorder()
 	local border = deco.getBarBorder("details") == "borderer"
 	forEachInstance(details(), function(inst)
 		forEachRow(inst, function(row)
-			if row.statusbar then deco.meterBarBorder(row.statusbar, border) end
+			if row.statusbar then
+				deco.meterBarBorder(row.statusbar, border)
+				applyRowStyle(row)
+			end
 		end)
 	end)
 end
@@ -771,6 +855,7 @@ addon:RegisterSkin("details", "Details", {
 			                  "Draw the DragonUI rim border around the bars.",
 			borderlessLabel = L["Borderless"] or "Borderless",
 			bordererLabel   = L["Borderer"] or "Borderer",
+			thinLabel       = L["Thin"] or "Thin",
 			onChanged       = DS.RefreshBarBorder,
 		})
 	end,

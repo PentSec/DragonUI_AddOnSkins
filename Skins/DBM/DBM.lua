@@ -102,6 +102,71 @@ local function timerStatusBar(bar)
     return statusBar, name
 end
 
+-- Height of the label row in the Thin layout; falls back to the font size.
+local function rowHeight(nameFs)
+    local h = nameFs and nameFs.GetHeight and nameFs:GetHeight()
+    if h and h > 0 then return h end
+    local size
+    if nameFs and nameFs.GetFont then size = select(2, nameFs:GetFont()) end
+    return size or 12
+end
+
+-- Restores the pre-Thin anchors on one bar (used on Full and on uninstall).
+local function restoreBarStyle(statusBar)
+    local saved = statusBar and statusBar._duiThin
+    if not saved then return end
+    local host = statusBar.GetParent and statusBar:GetParent()
+    local name = host and host.GetName and host:GetName()
+    deco.restorePoints(statusBar, saved.statusBar)
+    if name then
+        local nameFs = _G[name .. "BarName"]
+        local timerFs = _G[name .. "BarTimer"]
+        if nameFs then deco.restorePoints(nameFs, saved.name) end
+        if timerFs then deco.restorePoints(timerFs, saved.timer) end
+    end
+    if saved.w and saved.h then statusBar:SetSize(saved.w, saved.h) end
+    statusBar._duiThin = nil
+end
+
+-- Thin: name/value on a top row, the bar keeps the strip below them. The width
+-- is preserved because boss bars carry their icon as a child of the bar.
+local function applyBarStyle(statusBar, name)
+    if not (statusBar and name) then return end
+    if deco.getBarBorder("dbm") ~= "thin" then
+        restoreBarStyle(statusBar)
+        return
+    end
+    local host = statusBar.GetParent and statusBar:GetParent()
+    if not host then return end
+    local nameFs = _G[name .. "BarName"]
+    local timerFs = _G[name .. "BarTimer"]
+    if not statusBar._duiThin then
+        local barPts = deco.savePoints(statusBar)
+        if not barPts then return end
+        local w, h = statusBar:GetSize()
+        statusBar._duiThin = {
+            statusBar = barPts,
+            name = nameFs and deco.savePoints(nameFs),
+            timer = timerFs and deco.savePoints(timerFs),
+            w = w, h = h,
+        }
+    end
+    local w = statusBar._duiThin.w
+    local rowH = rowHeight(nameFs) + 1
+    if nameFs then
+        nameFs:ClearAllPoints()
+        nameFs:SetPoint("TOPLEFT", host, "TOPLEFT", 3, 0)
+    end
+    if timerFs then
+        timerFs:ClearAllPoints()
+        timerFs:SetPoint("TOPRIGHT", host, "TOPRIGHT", -3, 0)
+    end
+    statusBar:ClearAllPoints()
+    statusBar:SetPoint("TOP", host, "TOP", 0, -rowH)
+    statusBar:SetPoint("BOTTOM", host, "BOTTOM", 0, 0)
+    statusBar:SetWidth(w)
+end
+
 -- Puts the shared bar look and the restamp hooks on one StatusBar. Returns true
 -- when it ran, so callers can report that something was actually painted.
 local function styleBar(statusBar, name)
@@ -132,6 +197,7 @@ local function styleBar(statusBar, name)
     if spark then spark:Hide() end
 
     refreshColor(statusBar)
+    applyBarStyle(statusBar, name)
     return true
 end
 
@@ -142,6 +208,7 @@ local function unstampTimerBar(statusBar)
     statusBar._duiDBMPainted = nil
     deco.meterBarUnpaint(statusBar)
     deco.meterBarBorder(statusBar, false)
+    restoreBarStyle(statusBar)
 
     -- SetStatusBarTexture also resets the crop, handing the fill back to DBM.
     if type(statusBar.SetStatusBarTexture) == "function" then
@@ -246,6 +313,7 @@ local function unstampBossBar(outer)
         statusBar._duiDBMPainted = nil
         deco.meterBarUnpaint(statusBar)
         deco.meterBarBorder(statusBar, false)
+        restoreBarStyle(statusBar)
         statusBar:SetStatusBarTexture(BOSS_STOCK_TEXTURE)
         refreshColor(statusBar)
     end
@@ -400,13 +468,19 @@ end
 function DS.RefreshBarBorder()
     local border = deco.getBarBorder("dbm") == "borderer"
     forEachTimerBar(function(bar)
-        local statusBar = timerStatusBar(bar)
-        if statusBar then deco.meterBarBorder(statusBar, border) end
+        local statusBar, name = timerStatusBar(bar)
+        if statusBar then
+            deco.meterBarBorder(statusBar, border)
+            applyBarStyle(statusBar, name)
+        end
     end)
     forEachBossBar(function(outer)
         local name = type(outer.GetName) == "function" and outer:GetName()
         local statusBar = name and _G[name .. "Bar"]
-        if statusBar then deco.meterBarBorder(statusBar, border) end
+        if statusBar and name then
+            deco.meterBarBorder(statusBar, border)
+            applyBarStyle(statusBar, name)
+        end
     end)
 end
 
@@ -508,6 +582,7 @@ addon:RegisterSkin("dbm", "DBM", {
                               "Draw the DragonUI rim border around the bars.",
             borderlessLabel = L["Borderless"] or "Borderless",
             bordererLabel   = L["Borderer"] or "Borderer",
+            thinLabel       = L["Thin"] or "Thin",
             onChanged       = DS.RefreshBarBorder,
         })
     end,
