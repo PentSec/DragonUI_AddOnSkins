@@ -132,6 +132,44 @@ end
 
 
 -- ============================================================================
+-- METER ROW LAYOUT (shared by the meter skins)
+-- ============================================================================
+
+-- Outset of our overlaid row strips relative to their bar.
+local BAR_INSET_LT, BAR_INSET_T, BAR_INSET_RB, BAR_INSET_B = -2, 2, 2, -2
+
+-- Stretches an overlaid strip around target with the shared outset. reserve
+-- shifts the left edge in, e.g. to clear a per-row icon.
+function deco.anchorStrip(tex, target, reserve)
+    if not (tex and target) then return false end
+    reserve = reserve or 0
+    tex:ClearAllPoints()
+    tex:SetPoint("TOPLEFT", target, "TOPLEFT", BAR_INSET_LT - reserve, BAR_INSET_T)
+    tex:SetPoint("BOTTOMRIGHT", target, "BOTTOMRIGHT", BAR_INSET_RB, BAR_INSET_B)
+    return true
+end
+
+-- Paints one meter row strip: region, shared alpha, then anchored to target.
+-- Returns false when the region is missing (the texture is left untouched).
+function deco.meterStrip(tex, region, target, reserve)
+    if not (tex and target) then return false end
+    if not deco.setRegion(tex, region) then return false end
+    tex:SetVertexColor(1, 1, 1, media:GetRowStripAlpha())
+    tex:Show()
+    return deco.anchorStrip(tex, target, reserve)
+end
+
+-- Height of a text row: the FontString height, else its font size, else fallback.
+function deco.fontRowHeight(fs, fallback)
+    local h = fs and fs.GetHeight and fs:GetHeight()
+    if h and h > 0 then return h end
+    local size
+    if fs and fs.GetFont then size = select(2, fs:GetFont()) end
+    return size or fallback or 12
+end
+
+
+-- ============================================================================
 -- BAR BORDER (DragonUI rim)
 -- ============================================================================
 

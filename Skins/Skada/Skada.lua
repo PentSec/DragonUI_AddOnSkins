@@ -10,7 +10,7 @@ local media = addon.media   -- centralized palette (utils/media.lua)
 local DS = {}
 addon.SkadaSkinAddon = DS
 
--- Shared helpers (utils/decorate.lua): setRegion, panel/header, panelAlpha.
+-- Shared helpers (utils/decorate.lua): meter strips, panel/header, panelAlpha.
 local deco = addon.deco
 
 -- Sheet for LibSharedMedia and row fallbacks; single definition in the helper.
@@ -27,8 +27,6 @@ local ATLAS_EDGE   = "ui-damagemeters-bar-shadowedge"
 -- Band/title height; the band geometry lives in the helper.
 local HEADER_H        = 28
 
-local BAR_INSET_LT, BAR_INSET_T, BAR_INSET_RB, BAR_INSET_B = -2, 2, 2, -2
-
 local ROW_FONT, ROW_FONT_SIZE = "Arial Narrow", 14
 local TITLE_FONT, TITLE_FONT_SIZE = "Friz Quadrata TT", 13
 local BAR_SPACING = 4
@@ -40,9 +38,6 @@ local RIGHT_TO_LEFT = 2
 local ipairs, pairs, next, type, pcall, hooksecurefunc = ipairs, pairs, next, type, pcall, hooksecurefunc
 local min, max = math.min, math.max
 
-
--- Points a texture at a named atlas region (utils/decorate.lua).
-local setRegion = deco.setRegion
 
 -- Returns the Skada addon table once it is ready, or nil.
 local function skada()
@@ -79,14 +74,10 @@ end
 -- PER-BAR DECORATION
 -- ============================================================================
 
--- Stretches one overlaid strip around target (the bar, or the thin fill).
-local function anchorSkadaStrip(bar, tex, target)
-    local group = bar.ownerGroup
-    local reserve = (group and group.showIcon and group.thickness) or 0
-    target = target or bar
-    tex:ClearAllPoints()
-    tex:SetPoint("TOPLEFT", target, "TOPLEFT", BAR_INSET_LT - reserve, BAR_INSET_T)
-    tex:SetPoint("BOTTOMRIGHT", target, "BOTTOMRIGHT", BAR_INSET_RB, BAR_INSET_B)
+-- Extra left inset when Skada draws a per-row icon.
+local function stripReserve(bar)
+    local group = bar and bar.ownerGroup
+    return (group and group.showIcon and group.thickness) or 0
 end
 
 -- Draws (or reuses) one of our overlaid strips, anchored to the bar.
@@ -96,20 +87,7 @@ local function rowStrip(bar, key, layer, region, target)
         tex = bar:CreateTexture(nil, layer)
         bar[key] = tex
     end
-    if not setRegion(tex, region) then return false end
-    tex:SetVertexColor(1, 1, 1, media:GetRowStripAlpha())
-    tex:Show()
-    anchorSkadaStrip(bar, tex, target)
-    return true
-end
-
--- Height of the label row in the Thin layout; falls back to the font size.
-local function labelRowHeight(label)
-    local h = label and label:GetHeight()
-    if h and h > 0 then return h end
-    local size
-    if label and label.GetFont then size = select(2, label:GetFont()) end
-    return size or 11
+    return deco.meterStrip(tex, region, target or bar, stripReserve(bar))
 end
 
 -- Full height: hands the fill and the labels back to Skada's own layout.
@@ -117,8 +95,8 @@ local function fullSkadaBar(bar)
     if type(bar.UpdateOrientationLayout) == "function" and bar.ownerGroup then
         bar:UpdateOrientationLayout(bar.ownerGroup.orientation)
     end
-    if bar._duiBarBG then anchorSkadaStrip(bar, bar._duiBarBG, bar) end
-    if bar._duiBarEdge then anchorSkadaStrip(bar, bar._duiBarEdge, bar) end
+    if bar._duiBarBG then deco.anchorStrip(bar._duiBarBG, bar, stripReserve(bar)) end
+    if bar._duiBarEdge then deco.anchorStrip(bar._duiBarEdge, bar, stripReserve(bar)) end
 end
 
 -- Thin: name/value on a top row, the fill keeps the strip below them.
@@ -146,7 +124,7 @@ local function thinSkadaBar(bar)
             label:SetPoint("RIGHT", timer, "LEFT")
         end
     end
-    local top = -(labelRowHeight(label) + 1)
+    local top = -(deco.fontRowHeight(label, 11) + 1)
     bar.fg:ClearAllPoints()
     if rtl then
         bar.fg:SetPoint("TOPRIGHT", bar, "TOPRIGHT", 0, top)
@@ -155,8 +133,8 @@ local function thinSkadaBar(bar)
         bar.fg:SetPoint("TOPLEFT", bar, "TOPLEFT", 0, top)
         bar.fg:SetPoint("BOTTOMLEFT", bar, "BOTTOMLEFT", 0, 0)
     end
-    if bar._duiBarBG then anchorSkadaStrip(bar, bar._duiBarBG, bar.fg) end
-    if bar._duiBarEdge then anchorSkadaStrip(bar, bar._duiBarEdge, bar.fg) end
+    if bar._duiBarBG then deco.anchorStrip(bar._duiBarBG, bar.fg, stripReserve(bar)) end
+    if bar._duiBarEdge then deco.anchorStrip(bar._duiBarEdge, bar.fg, stripReserve(bar)) end
 end
 
 -- Applies the stored bar border/style to one bar. Full is a no-op unless we had

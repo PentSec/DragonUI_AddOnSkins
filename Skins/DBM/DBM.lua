@@ -102,15 +102,6 @@ local function timerStatusBar(bar)
     return statusBar, name
 end
 
--- Height of the label row in the Thin layout; falls back to the font size.
-local function rowHeight(nameFs)
-    local h = nameFs and nameFs.GetHeight and nameFs:GetHeight()
-    if h and h > 0 then return h end
-    local size
-    if nameFs and nameFs.GetFont then size = select(2, nameFs:GetFont()) end
-    return size or 12
-end
-
 -- Restores the pre-Thin anchors on one bar (used on Full and on uninstall).
 local function restoreBarStyle(statusBar)
     local saved = statusBar and statusBar._duiThin
@@ -152,7 +143,7 @@ local function applyBarStyle(statusBar, name)
         }
     end
     local w = statusBar._duiThin.w
-    local rowH = rowHeight(nameFs) + 1
+    local rowH = deco.fontRowHeight(nameFs) + 1
     if nameFs then
         nameFs:ClearAllPoints()
         nameFs:SetPoint("TOPLEFT", host, "TOPLEFT", 3, 0)

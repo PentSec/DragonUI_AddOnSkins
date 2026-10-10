@@ -35,9 +35,6 @@ local ICON_SIZE      = 16
 local TITLE_SIZE     = 13
 local floor = math.floor
 
--- Outset of our row strips relative to the row's statusbar.
-local BAR_INSET_LT, BAR_INSET_T, BAR_INSET_RB, BAR_INSET_B = -2, 2, 2, -2
-
 -- Minimum height, px, kept for the class-coloured fill in the Thin layout.
 local THIN_STRIP_MIN = 4
 
@@ -153,15 +150,6 @@ local function registerMedia()
 	return true
 end
 
--- Stretches a texture over a row's statusbar with a small outset.
-local function anchorToBar(tex, bar)
-	if not (tex and bar) then return false end
-	tex:ClearAllPoints()
-	tex:SetPoint("TOPLEFT", bar, "TOPLEFT", BAR_INSET_LT, BAR_INSET_T)
-	tex:SetPoint("BOTTOMRIGHT", bar, "BOTTOMRIGHT", BAR_INSET_RB, BAR_INSET_B)
-	return true
-end
-
 -- Draws (or reuses) one of our overlaid row strips and anchors it to the bar.
 local function rowStrip(row, key, layer, region)
 	local bar = row.statusbar
@@ -171,10 +159,7 @@ local function rowStrip(row, key, layer, region)
 		tex = bar:CreateTexture(nil, layer)
 		row[key] = tex
 	end
-	if not setRegion(tex, region) then return false end
-	tex:SetVertexColor(1, 1, 1, media:GetRowStripAlpha())
-	tex:Show()
-	return anchorToBar(tex, bar)
+	return deco.meterStrip(tex, region, bar)
 end
 
 -- Hides Details' own header art (remembering what was shown), or puts it back
@@ -209,15 +194,6 @@ end
 -- Row's name/value FontStrings (field names vary between Details builds).
 local function detailsName(row) return row.texto_esquerdo or row.textleft end
 local function detailsValue(row) return row.texto_direita or row.textright end
-
--- Height of the name row in the Thin layout; falls back to the font size.
-local function detailsRowHeight(name)
-	local h = name and name.GetHeight and name:GetHeight()
-	if h and h > 0 then return h end
-	local size
-	if name and name.GetFont then size = select(2, name:GetFont()) end
-	return size or 12
-end
 
 -- Full height: hands the fill and the texts back to Details' own anchors.
 local function fullDetailsRow(row)
@@ -257,7 +233,7 @@ local function thinDetailsRow(row)
 		value:SetPoint("TOPRIGHT", row, "TOPRIGHT", -4, 0)
 	end
 	-- Keep a visible class-coloured strip even when Detail's rows are short.
-	local textH = detailsRowHeight(name) + 1
+	local textH = deco.fontRowHeight(name) + 1
 	local rowHeight = row:GetHeight() or 0
 	if rowHeight <= 0 then rowHeight = textH + THIN_STRIP_MIN end
 	local rowH = rowHeight - THIN_STRIP_MIN
