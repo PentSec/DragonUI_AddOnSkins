@@ -15,4 +15,7 @@
   <!-- Deadly Boss Mods retail Skin -->
   <Script file="DBM\DBM.lua"/>
 
+  <!-- BigWigs retail Skin -->
+  <Script file="BigWigs\BigWigs.lua"/>
+
 </Ui>

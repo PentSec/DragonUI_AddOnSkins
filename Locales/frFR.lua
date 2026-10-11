@@ -62,6 +62,14 @@ L["Flat DragonUI bars for DBM timers, boss health and the range check."] = "Barr
 L["Enable DBM Skin"] = "Activer le skin de DBM"
 L["Enable the DragonUI skin for DBM."] = "Activer le skin de DragonUI pour DBM."
 
+-------------------------------
+-- BigWigs Skin Translation
+-------------------------------
+L["BigWigs Skin"] = "Skin de BigWigs"
+L["Flat DragonUI bars for BigWigs timers."] = "Barres plates DragonUI pour les minuteurs de BigWigs."
+L["Enable BigWigs Skin"] = "Activer le skin de BigWigs"
+L["Enable the DragonUI skin for BigWigs."] = "Activer le skin de DragonUI pour BigWigs."
+
 -- Bar border option (shared by Details, Skada and DBM)
 L["Bar Border"] = "Bordure des barres"
 L["Borderless"] = "Sans bordure"

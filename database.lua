@@ -35,6 +35,12 @@ addon.defaults = {
                     barBorder = "borderless",
                 },
             },
+            bigwigs = {
+                enabled = false,
+                options = {
+                    barBorder = "borderless",
+                },
+            },
         }
     }
 }

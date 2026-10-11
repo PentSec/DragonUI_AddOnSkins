@@ -62,6 +62,14 @@ L["Flat DragonUI bars for DBM timers, boss health and the range check."] = "適�
 L["Enable DBM Skin"] = "啟用 DBM 皮膚"
 L["Enable the DragonUI skin for DBM."] = "啟用 DragonUI 皮膚用於 DBM。"
 
+-------------------------------
+-- BigWigs Skin Translation
+-------------------------------
+L["BigWigs Skin"] = "BigWigs 皮膚"
+L["Flat DragonUI bars for BigWigs timers."] = "適用於 BigWigs 計時器的 DragonUI 扁平條。"
+L["Enable BigWigs Skin"] = "啟用 BigWigs 皮膚"
+L["Enable the DragonUI skin for BigWigs."] = "啟用 DragonUI 皮膚用於 BigWigs。"
+
 -- Bar border option (shared by Details, Skada and DBM)
 L["Bar Border"] = "條的邊框"
 L["Borderless"] = "無邊框"
