@@ -447,6 +447,19 @@ local function hookInstallPlugin(D)
 	end)
 end
 
+-- Details re-anchors every row on its own refreshes (options window, profile
+-- load), which clears the Thin offsets; re-stamp the rows right after.
+local function hookInstanceRefreshRows(D)
+	if DS._ourRefreshRowsHooked or type(D.InstanceRefreshRows) ~= "function" then return end
+	DS._ourRefreshRowsHooked = true
+	hooksecurefunc(D, "InstanceRefreshRows", function(self, instancia)
+		local inst = instancia or self
+		if type(inst) ~= "table" or inst.skin ~= SKIN_NAME then return end
+		if not addon:GetSkinEnabled("details") then return end
+		stampRows(inst)
+	end)
+end
+
 
 -- ============================================================================
 -- PUBLIC API
@@ -675,6 +688,7 @@ function DS.Restore()
 	registerMedia()
 	hookChangeSkin(D)
 	hookInstallPlugin(D)
+	hookInstanceRefreshRows(D)
 	hookTinyThreatPlugin()
 	DS.Install(false)
 	forEachInstance(D, function(inst, index)
@@ -703,6 +717,7 @@ function DS.Install(force)
 	registerMedia()
 	hookChangeSkin(D)
 	hookInstallPlugin(D)
+	hookInstanceRefreshRows(D)
 	hookTinyThreatPlugin()
 	if D.skins[SKIN_NAME] and not force then return true end
 	if force then D.skins[SKIN_NAME] = nil end
