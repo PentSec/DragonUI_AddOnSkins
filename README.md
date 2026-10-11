@@ -40,6 +40,7 @@ SavedVariables.
 - **[CompactRaidFrame](https://gitlab.com/tsoukie-3.3.5/compactraidframe)**
 - **[WIM](https://warperia.com/addon-wotlk/wowinstantmessenger/)**
 - **[DBM](https://warperia.com/addon-wotlk/dbm-warmane/)**
+- **[BigWigs](https://warperia.com/addon-wotlk/bigwigs)**
 
 
 ## Installation
